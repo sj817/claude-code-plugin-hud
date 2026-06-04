@@ -1,2 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Shell scripts must stay LF even on Windows checkouts — install.sh is fetched
+# and run via `curl | bash`, and CRLF would break the shebang interpreter.
+*.sh text eol=lf
