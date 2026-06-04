@@ -1,0 +1,5 @@
+# Pin the toolchain so local and CI build with exactly the same compiler and
+# lints (matches what the maintainer runs locally).
+[toolchain]
+channel = "1.96.0"
+components = ["rustfmt", "clippy"]
