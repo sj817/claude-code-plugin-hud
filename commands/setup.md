@@ -23,13 +23,19 @@ target triple and binary name:
 |------------------------|--------------|--------------------------------|--------------|
 | macOS (`darwin`)       | arm64        | `aarch64-apple-darwin`         | `claude-hud` |
 | macOS (`darwin`)       | x86_64       | `x86_64-apple-darwin`          | `claude-hud` |
-| Linux                  | x86_64       | `x86_64-unknown-linux-gnu`     | `claude-hud` |
-| Linux                  | aarch64      | `aarch64-unknown-linux-gnu`    | `claude-hud` |
+| Linux (glibc)          | x86_64       | `x86_64-unknown-linux-gnu`     | `claude-hud` |
+| Linux (glibc)          | aarch64      | `aarch64-unknown-linux-gnu`    | `claude-hud` |
+| Linux (musl/Alpine)    | x86_64       | `x86_64-unknown-linux-musl`    | `claude-hud` |
+| Linux (musl/Alpine)    | aarch64      | `aarch64-unknown-linux-musl`   | `claude-hud` |
 | Windows (`win32`)      | x86_64       | `x86_64-pc-windows-msvc`       | `claude-hud.exe` |
+| Windows (`win32`)      | arm64        | `aarch64-pc-windows-msvc`      | `claude-hud.exe` |
 
-- **macOS/Linux**: run `uname -sm` to get OS and arch.
-- **Windows**: arch is almost always `x86_64`. Note Claude Code may route the
-  command through Git Bash or PowerShell; either can launch the `.exe` directly.
+- **macOS/Linux**: run `uname -sm` to get OS and arch (`arm64`/`aarch64` vs `x86_64`).
+- **Linux glibc vs musl**: prefer the `-gnu` build. Use `-musl` only when glibc is
+  absent (e.g. Alpine) — a quick check is `ldd --version 2>&1 | grep -qi musl`.
+- **Windows**: usually `x86_64`; pick `aarch64-pc-windows-msvc` on ARM devices
+  (Surface Pro X, etc). Claude Code may route the command through Git Bash or
+  PowerShell — either launches the `.exe` directly.
 
 ## Step 2 — Verify the binary exists
 

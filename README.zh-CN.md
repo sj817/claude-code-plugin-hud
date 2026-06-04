@@ -95,7 +95,7 @@ echo '{"model":{"display_name":"Opus 4.8 (1M context)"},"context_window":{"used_
 
 ## 发版
 
-推一个版本 tag,CI 全包 —— 编译 Windows、macOS(x64 + arm64)、Linux(x64 + arm64),把二进制提交进 `dist/`,并发布 GitHub Release:
+推一个版本 tag,CI 全包 —— 编译 Windows(x64 + arm64)、macOS(x64 + arm64)、Linux(glibc + musl,x64 + arm64),把二进制提交进 `dist/`,并发布 GitHub Release:
 
 ```bash
 git tag v0.1.0 && git push origin v0.1.0

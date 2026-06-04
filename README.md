@@ -102,9 +102,9 @@ echo '{"model":{"display_name":"Opus 4.8 (1M context)"},"context_window":{"used_
 
 ## Releases
 
-Push a version tag and CI does the rest — it builds Windows, macOS (x64 + arm64),
-and Linux (x64 + arm64), commits the binaries into `dist/`, and publishes a
-GitHub Release:
+Push a version tag and CI does the rest — it builds Windows (x64 + arm64), macOS
+(x64 + arm64), and Linux (glibc + musl, x64 + arm64), commits the binaries into
+`dist/`, and publishes a GitHub Release:
 
 ```bash
 git tag v0.1.0 && git push origin v0.1.0
