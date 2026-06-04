@@ -4,8 +4,8 @@
 //!   Line 1 — `███░ 252k/1M(25%) | +1507 -542 | 💰 $10.95 | ⏱  1h36m | 🌿 main* ... v2.1.161 ⚡high(Opus 4.8)`
 //!            context bar · lines changed · cost · duration · git on the left;
 //!            version, effort and model right-aligned in the corner.
-//!   Line 2 — `🎉Cache: 528k/550k(99%) | 5h(10% 2h26m) · 7d(35% 2d12h) | 📁 Github/proj`
-//!            cache, rate limits, folder (last; smart-trimmed to ~40 chars).
+//!   Line 2 — `Quota: 5h 10% 2h26m · 7d 35% 2d12h | 🎉Cache: 528k/550k(99%) | 📁 Github/proj`
+//!            quota usage (the focus), cache, folder (last; smart-trimmed to ~40 chars).
 //!
 //! Invariants: constant height; both lines are width-aware and drop their
 //! lowest-priority segments before they would wrap; one progress bar only.
@@ -146,7 +146,7 @@ fn context_seg(data: &StatusInput) -> Seg {
             Seg::new(
                 format!("{bar} {used}/{total}({p}%)"),
                 format!(
-                    "{c}{bar}{RESET} {m}{used}/{total}{RESET}{c}({p}%){RESET}",
+                    "{c}{bar}{RESET} {m}{used}/{total}{RESET}({p}%)",
                     m = theme::MUTE
                 ),
                 100,
@@ -187,6 +187,11 @@ fn line2(data: &StatusInput) -> Vec<Seg> {
     let cw = &data.context_window;
     let mut segs = Vec::new();
 
+    // Rate limits FIRST — this is the line's focal point (quota usage).
+    if let Some(seg) = rate_seg(data) {
+        segs.push(seg);
+    }
+
     // 🎉 Cache: read/total(rate)
     if let Some(cu) = cw.current_usage.as_ref() {
         let total_in =
@@ -197,19 +202,13 @@ fn line2(data: &StatusInput) -> Vec<Seg> {
             segs.push(Seg::new(
                 format!("\u{1f389}Cache: {read}/{tot}({rate}%)"),
                 format!(
-                    "\u{1f389}{ca}Cache:{RESET} {m}{read}/{tot}{RESET}{cc}({rate}%){RESET}",
+                    "\u{1f389}{ca}Cache:{RESET} {m}{read}/{tot}{RESET}({rate}%)",
                     ca = theme::CACHE,
-                    m = theme::MUTE,
-                    cc = theme::cache_color(rate as f64)
+                    m = theme::MUTE
                 ),
                 40,
             ));
         }
-    }
-
-    // Rate limits as one segment: `5h(10% 2h26m) · 7d(35% 2d12h)`.
-    if let Some(seg) = rate_seg(data) {
-        segs.push(seg);
     }
 
     // 📁 folder LAST — smart path: show the full path if it fits the budget,
@@ -226,7 +225,10 @@ fn line2(data: &StatusInput) -> Vec<Seg> {
     segs
 }
 
-/// `5h(10% 2h26m) · 7d(35% 2d12h)` — label muted, % usage-colored, time slate.
+/// `Quota: 5h 56% 1h30m · 7d 52% 2d1h` — the quota-usage focus. A teal `Quota:`
+/// label leads it; the window label is bright, the % carries one of four 25%
+/// bands (green/yellow/orange/red), and the reset countdown stays dim. Highest
+/// priority on line 2 so it is the last thing dropped when space runs out.
 fn rate_seg(data: &StatusInput) -> Option<Seg> {
     let rl = data.rate_limits.as_ref()?;
     let mut plain = Vec::new();
@@ -238,13 +240,13 @@ fn rate_seg(data: &StatusInput) -> Option<Seg> {
                     .resets_at
                     .map(|t| format!(" {}", fmt_countdown(t)))
                     .unwrap_or_default();
-                plain.push(format!("{label}({:.0}%{cd})", p));
+                plain.push(format!("{label} {:.0}%{cd}", p));
                 rendered.push(format!(
-                    "{mu}{label}({RESET}{uc}{:.0}%{RESET}{ti}{cd}{RESET}{mu}){RESET}",
+                    "{wh}{label}{RESET} {lc}{:.0}%{RESET}{mu}{cd}{RESET}",
                     p,
-                    mu = theme::MUTE,
-                    uc = theme::usage_color(p),
-                    ti = theme::TIME
+                    wh = theme::WHITE,
+                    lc = theme::limit_color(p),
+                    mu = theme::MUTE
                 ));
             }
         }
@@ -252,8 +254,10 @@ fn rate_seg(data: &StatusInput) -> Option<Seg> {
     if plain.is_empty() {
         return None;
     }
-    let dot = format!("{} \u{b7} {RESET}", theme::WHITE);
-    Some(Seg::new(plain.join(" \u{b7} "), rendered.join(&dot), 50))
+    let dot = format!("{DIM} \u{b7} {RESET}");
+    let plain_s = format!("Quota: {}", plain.join(" \u{b7} "));
+    let rendered_s = format!("{q}Quota:{RESET} {}", rendered.join(&dot), q = theme::QUOTA);
+    Some(Seg::new(plain_s, rendered_s, 60))
 }
 
 // ---- shared ---------------------------------------------------------------

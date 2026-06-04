@@ -22,8 +22,10 @@ pub const WHITE: &str = "\x1b[97m"; // bright white
 pub const ADD: &str = "\x1b[32m"; // green
 pub const DEL: &str = "\x1b[31m"; // red
 
-// Deliberate non-standard accent
+// Deliberate non-standard accents
 pub const CACHE: &str = "\x1b[38;5;212m"; // pink (kept by request)
+pub const ORANGE: &str = "\x1b[38;5;208m"; // 4th quota band, between yellow and red
+pub const QUOTA: &str = "\x1b[38;5;80m"; // teal label for the quota segment (line 2 focus)
 
 /// Wrap `text` in `color` + reset. No-op when `color` is empty.
 pub fn paint(color: &str, text: &str) -> String {
@@ -46,14 +48,16 @@ pub fn usage_color(pct: f64) -> &'static str {
     }
 }
 
-/// Health color for a 0-100 value where high is good (e.g. cache hit rate):
-/// green ≥ 90, yellow ≥ 70, else red.
-pub fn cache_color(pct: f64) -> &'static str {
-    if pct >= 90.0 {
-        "\x1b[32m"
-    } else if pct >= 70.0 {
-        "\x1b[33m"
+/// Quota-usage color in four 25% bands (low = good, high = bad):
+/// green < 25, yellow < 50, orange < 75, else red.
+pub fn limit_color(pct: f64) -> &'static str {
+    if pct >= 75.0 {
+        "\x1b[31m" // red
+    } else if pct >= 50.0 {
+        ORANGE
+    } else if pct >= 25.0 {
+        "\x1b[33m" // yellow
     } else {
-        "\x1b[31m"
+        "\x1b[32m" // green
     }
 }
