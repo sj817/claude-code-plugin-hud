@@ -1,0 +1,15 @@
+{
+  "name": "claude-code-plugin-hud",
+  "description": "Lightweight, fixed-height statusline HUD for Claude Code, written in Rust. Constant height, width-aware, one progress bar.",
+  "version": "0.1.0",
+  "author": {
+    "name": "sj817"
+  },
+  "commands": [
+    "./commands/setup.md"
+  ],
+  "homepage": "https://github.com/sj817/claude-code-plugin-hud",
+  "repository": "https://github.com/sj817/claude-code-plugin-hud",
+  "license": "MIT",
+  "keywords": ["hud", "statusline", "monitoring", "context", "rust", "claude-code"]
+}

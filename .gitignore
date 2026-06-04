@@ -1,0 +1,7 @@
+/target
+# Cargo.lock IS committed — this is a binary crate and we want reproducible
+# release builds of the shipped binaries.
+# dist/ holds the prebuilt binaries shipped with the plugin. Commit them for
+# releases (so `/plugin install` works without a build step), or build via CI.
+# Uncomment to keep them out of the repo and attach to GitHub Releases instead:
+# /dist

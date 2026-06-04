@@ -1,0 +1,13 @@
+{
+  "name": "claude-code-plugin-hud",
+  "owner": {
+    "name": "sj817"
+  },
+  "plugins": [
+    {
+      "name": "claude-code-plugin-hud",
+      "source": "./",
+      "description": "Lightweight, fixed-height statusline HUD for Claude Code, written in Rust."
+    }
+  ]
+}
