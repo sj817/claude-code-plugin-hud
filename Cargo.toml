@@ -1,6 +1,6 @@
 [package]
 name = "claude-code-plugin-hud"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 description = "Lightweight, fixed-height statusline HUD for Claude Code"
 license = "MIT"
