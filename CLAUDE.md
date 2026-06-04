@@ -1,48 +1,55 @@
 # claude-code-plugin-hud — project notes
 
-A Rust CLI that renders the Claude Code statusline. Packaged as a Claude Code
-plugin: prebuilt per-platform binaries ship in `dist/`, and the namespaced
-`/claude-code-plugin-hud:setup` command wires one into the user's
-`settings.json` (plugins cannot set the main `statusLine` themselves — only a
-command can).
+A Rust CLI that renders the Claude Code statusline, shipped as a Claude Code
+plugin.
 
-Package name: `claude-code-plugin-hud`. Binary name: `claude-hud` (kept short).
+- Package name: `claude-code-plugin-hud`
+- Binary name: `claude-hud` (kept short)
+- Prebuilt per-platform binaries ship in `dist/`.
+- The namespaced `/claude-code-plugin-hud:setup` command wires a binary into the
+  user's `settings.json`. Plugins cannot set the main `statusLine` themselves;
+  only a command can.
 
 ## How the statusline contract works
 
-- Claude Code streams session JSON to the binary on **stdin**; whatever it
-  prints to **stdout** is shown. Each printed line = one rendered row.
-- Runs after each assistant message, after `/compact`, on permission/vim
-  changes (debounced 300ms). It does NOT re-run while you type.
-- Terminal size is read from the `COLUMNS`/`LINES` env vars (v2.1.153+), not
-  `tput`. Many JSON fields are optional/null (see `src/input.rs`) — never unwrap.
-- Permission mode (auto/plan/…) is NOT in the statusline JSON, so the HUD does
-  not show it. (Hooks expose `permission_mode`, but no hook fires on a bare
-  shift+tab toggle, so it can't be shown reliably — intentionally omitted.)
+- Claude Code streams session JSON to the binary on **stdin**. Whatever the
+  binary prints to **stdout** is shown, one rendered row per printed line.
+- It runs after each assistant message, after `/compact`, and on permission/vim
+  changes (debounced 300ms). It does not re-run while you type.
+- Terminal size comes from the `COLUMNS`/`LINES` env vars (v2.1.153+), not
+  `tput`.
+- Many JSON fields are optional or null (see `src/input.rs`). Never unwrap.
+- Permission mode (auto/plan/…) is not in the statusline JSON, so the HUD does
+  not show it. Hooks expose `permission_mode`, but no hook fires on a bare
+  shift+tab toggle, so it cannot be shown reliably. Omitted intentionally.
 
 ## Architecture
 
-- `src/main.rs`   — read stdin, parse, read `$COLUMNS`/`$LINES`, print.
-- `src/input.rs`  — serde structs; every field optional/defaulted.
-- `src/render.rs` — layout rules (constant height, width-aware drop by
-  priority, single bar, smart path). Start here for display changes.
-- `src/git.rs`    — branch + dirty flag, cached per `session_id` (5s TTL).
-- `src/theme.rs`  — calm 16-color palette + two accents (pink cache, soft-gold
-  folder) + usage/cache threshold colors.
+| File           | Responsibility                                                              |
+| -------------- | -------------------------------------------------------------------------- |
+| `src/main.rs`  | Read stdin, parse, read `$COLUMNS`/`$LINES`, print.                         |
+| `src/input.rs` | Serde structs; every field optional/defaulted.                             |
+| `src/render.rs`| Layout rules: constant height, width-aware drop by priority, single bar, smart path. Start here for display changes. |
+| `src/git.rs`   | Branch + dirty flag, cached per `session_id` (5s TTL).                      |
+| `src/theme.rs` | Calm 16-color palette, three accents (pink cache, soft-gold folder, orange quota band), and the usage / four-band quota threshold colors. |
 
 ## Layout
 
 ```
 <bar> used/total(%) | +add -del | 💰 cost | ⏱ dur | 🌿 branch*    version ⚡effort(model)
-🎉Cache: read/total(hit%) | 5h(% reset) · 7d(% reset) | 📁 smart-path
+Quota: 5h % reset · 7d % reset | 🎉Cache: read/total(hit%) | 📁 smart-path
 ```
+
+Line 2 leads with the quota segment (the focal point): a teal `Quota:` label,
+bright window labels, the `%` in four 25% bands (green/yellow/orange/red), and a
+dim reset countdown. The `(%)` on the context bar and the cache are left uncolored.
 
 ## Invariants (do not regress)
 
-1. Output is exactly 2 lines (1 when `CLAUDE_HUD_ONELINE=1` or `LINES` tiny).
-2. A line never exceeds `$COLUMNS` (drop segments, don't wrap).
+1. Output is exactly 2 lines (1 when `CLAUDE_HUD_ONELINE=1` or `LINES` is tiny).
+2. A line never exceeds `$COLUMNS`. Drop segments, don't wrap.
 3. At most one progress bar (the context window).
-4. Build is warning-free; `cargo clippy -- -D warnings` is enforced in CI.
+4. Build is warning-free; CI enforces `cargo clippy -- -D warnings`.
 
 ## Build & test
 
@@ -53,6 +60,10 @@ echo '{"model":{"display_name":"Opus 4.8 (1M context)"},"context_window":{"used_
 scripts/build-all.sh    # cross-compile all dist/ targets
 ```
 
-CI (`.github/workflows/`): `ci.yml` runs fmt/clippy/build/smoke on push & PR;
-`release.yml` builds all targets and attaches them to a GitHub Release on a
-`v*` tag.
+## CI
+
+The workflows live in `.github/workflows/`:
+
+- `ci.yml` runs fmt/clippy/build/smoke on push and PR.
+- `release.yml` builds all targets and attaches them to a GitHub Release on a
+  `v*` tag.

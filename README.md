@@ -1,12 +1,14 @@
 # claude-code-plugin-hud
 
-A clean, two-line statusline for [Claude Code](https://code.claude.com/docs/en/statusline) — your model, context budget, cost, git, and rate limits, always visible and never in the way.
+A two-line statusline for [Claude Code](https://code.claude.com/docs/en/statusline), written in Rust. Shows your model, context window, cost, git branch, and rate limits.
 
 English · [简体中文](./README.zh-CN.md)
 
 ![demo](./demo.png)
 
 ## Install
+
+### Plugin
 
 ```text
 /plugin marketplace add sj817/claude-code-plugin-hud
@@ -15,57 +17,72 @@ English · [简体中文](./README.zh-CN.md)
 /claude-code-plugin-hud:setup
 ```
 
-`/reload-plugins` activates the freshly installed command (or just restart Claude
-Code). Then `/claude-code-plugin-hud:setup` picks the right prebuilt binary for
-your OS and writes the statusline into your settings — your next message shows
-the HUD.
+`/reload-plugins` activates the freshly installed command (or restart Claude Code). `/claude-code-plugin-hud:setup` then picks the prebuilt binary for your OS and writes the `statusLine` entry into your `settings.json`. The HUD appears on your next message.
 
-> Plugin commands are namespaced by the plugin, hence the `claude-code-plugin-hud:` prefix.
+Plugins cannot set `statusLine` directly, so a command does it. Plugin commands are namespaced, hence the `claude-code-plugin-hud:` prefix.
 
-## Reading the HUD
+### Script
 
+No plugin needed. This downloads only the binary for your platform and writes the `statusLine` for you (any existing `settings.json` is backed up first):
+
+```bash
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/sj817/claude-code-plugin-hud/main/scripts/install.sh | bash
 ```
-██░░░░░░ 397k/1M(40%) | +2318 -922 | 💰 $27.62 | ⏱ 3h4m | 🌿 main*    v2.1.161 ⚡high(Opus 4.8)
-🎉Cache: 396k/397k(99%) | 5h(25% 57m) · 7d(38% 2d10h) | 📁 D:/Github/claude-code-plugin-hud
+
+```powershell
+# Windows
+irm https://raw.githubusercontent.com/sj817/claude-code-plugin-hud/main/scripts/install.ps1 | iex
 ```
 
-**Top line — what's happening right now**, left to right:
+It installs to `~/.claude/statusline/`; re-run any time to update. The log follows your system language (Chinese or English). Optional overrides: `CLAUDE_HUD_VERSION` pins a release (e.g. `v0.1.6`), `CLAUDE_HUD_LANG` forces the language (`zh` / `en`).
 
-- `██░░ 397k/1M(40%)` — context window, used / total. The one progress bar, shifting green → yellow → red as it fills.
-- `+2318 -922` — lines added and removed this session.
-- `💰 $27.62` — session cost.
-- `⏱ 3h4m` — wall-clock time since the session started.
-- `🌿 main*` — git branch; the `*` means there are uncommitted changes.
-- `v2.1.161 ⚡high(Opus 4.8)` — Claude Code version, effort level, and model, pinned to the right.
+## Anatomy
 
-**Bottom line — session and limits:**
+```text
+███░░░░░ 397k/1M(40%) | +2318 -922 | 💰 $27.62 | ⏱ 3h4m | 🌿 main*    v2.1.161 ⚡high(Opus 4.8)
+Quota: 5h 25% 57m · 7d 38% 2d10h | 🎉Cache: 396k/397k(99%) | 📁 D:/Github/claude-code-plugin-hud
+```
 
-- `🎉Cache: 396k/397k(99%)` — prompt-cache hit rate. High is good, so it stays green.
-- `5h(25% 57m)` and `7d(38% 2d10h)` — rate limits used, each with its reset countdown.
-- `📁 …` — your working directory, trimmed from the front when the path is long.
+### Line 1
 
-Anything Claude Code hasn't reported yet (rate limits before your first message,
-for example) is simply left out — the layout never shifts.
+| Segment | Example | Meaning |
+| --- | --- | --- |
+| Context bar | `███░░░░░ 397k/1M(40%)` | Context window used / total. The single progress bar. Green below 70%, yellow below 90%, red at 90%+. |
+| Lines changed | `+2318 -922` | Lines added / removed this session. |
+| Cost | `💰 $27.62` | Session cost in USD. |
+| Duration | `⏱ 3h4m` | Wall-clock time since the session started. |
+| Branch | `🌿 main*` | Git branch. A trailing `*` marks a dirty working tree. |
+| Version · effort(model) | `v2.1.161 ⚡high(Opus 4.8)` | Right-aligned: Claude Code version, reasoning effort, model. |
 
-## What makes it pleasant
+### Line 2
 
-- **Always two lines.** It never balloons or jumps, so it won't push your prompt around.
-- **Fits the terminal.** Reads `$COLUMNS` and drops the least important pieces before it would ever wrap.
-- **One bar, on purpose.** Only the context window gets a progress bar; everything else is quick to read.
-- **Calm, themed colors.** Standard ANSI that follows your terminal — no neon, no fighting your palette.
-- **Tiny and fast.** A single ~310 KB Rust binary with no runtime dependencies.
+| Segment | Example | Meaning |
+| --- | --- | --- |
+| Rate limits | `Quota: 5h 25% 57m · 7d 38% 2d10h` | Plan-quota usage per window, with reset countdown. Line 2's focal point: the `%` is colored in four 25% bands — green `<25`, yellow `<50`, orange `<75`, red `≥75`. |
+| Cache | `🎉Cache: 396k/397k(99%)` | Prompt-cache read / total, with hit rate. |
+| Folder | `📁 D:/Github/...` | Working directory, trimmed from the front when long (never below the final component). |
+
+Notes:
+
+- Height is always two lines. Segments never wrap; the lowest-priority ones drop when a line exceeds `$COLUMNS`.
+- Missing data is omitted, not padded. Rate limits are absent before the first API response; the cache breakdown is null right after `/compact`.
+- Colors stay on the standard 16-color ANSI palette, plus a pink `Cache:` label, a soft-gold folder, and an orange band in the quota scale. The `(%)` on the bar and cache are left plain.
+- Permission mode (auto/plan) is not shown: it is not present in the statusline JSON.
 
 ## Configuration
 
-It works out of the box; everything below is optional.
+The only setting is `CLAUDE_HUD_ONELINE`. Set it to `1` (or `true`) to render line 1 only, which keeps Claude Code's mode row visible below the prompt:
 
-Set `CLAUDE_HUD_ONELINE=1` to render a single line — handy when you want to keep
-the built-in mode row below the prompt visible. `$COLUMNS` and `$LINES` come from
-Claude Code (v2.1.153+), and the HUD collapses to one line on a very short terminal.
+```text
+CLAUDE_HUD_ONELINE=1
+```
+
+The HUD also collapses to one line when `$LINES` is below 10. `$COLUMNS` and `$LINES` come from Claude Code v2.1.153+; width falls back to 80 when absent.
 
 ## Manual setup
 
-Prefer not to use `:setup`? Point your statusline straight at the binary:
+To skip `:setup`, point `statusLine` at the binary directly:
 
 ```jsonc
 // ~/.claude/settings.json
@@ -78,8 +95,7 @@ Prefer not to use `:setup`? Point your statusline straight at the binary:
 }
 ```
 
-On Windows, write the path with forward slashes. On Claude Code older than
-v2.1.153 (no `$COLUMNS`), read the width from the tty instead:
+On Windows, write the path with forward slashes. On Claude Code older than v2.1.153 (no `$COLUMNS`), read the width from the tty with an `stty` shim:
 
 ```jsonc
 "command": "cols=$(stty size </dev/tty 2>/dev/null | awk '{print $2}'); export COLUMNS=${cols:-120}; exec /absolute/path/to/claude-hud"
@@ -91,20 +107,24 @@ v2.1.153 (no `$COLUMNS`), read the width from the tty instead:
 cargo build --release        # -> target/release/claude-hud
 ```
 
-Give it a spin with mock input:
+Test with mock input:
 
 ```bash
 echo '{"model":{"display_name":"Opus 4.8 (1M context)"},"context_window":{"used_percentage":25,"total_input_tokens":50000,"context_window_size":200000},"session_id":"x"}' \
   | COLUMNS=120 ./target/release/claude-hud
 ```
 
-`scripts/build-all.sh` cross-compiles every shipped platform into `dist/<triple>/`.
+Cross-compile every shipped target into `dist/<triple>/`:
+
+```bash
+scripts/build-all.sh
+```
+
+The binary is small (roughly 290 KB to 545 KB depending on platform) and has no runtime dependencies. Shipped targets: Windows x64 and arm64, macOS x64 and arm64, Linux glibc x64 and arm64, Linux musl x64 and arm64.
 
 ## Releases
 
-Push a version tag and CI does the rest — it builds Windows (x64 + arm64), macOS
-(x64 + arm64), and Linux (glibc + musl, x64 + arm64), commits the binaries into
-`dist/`, and publishes a GitHub Release:
+Push a `v*` tag. CI builds every target, commits the binaries into `dist/`, and publishes a GitHub Release:
 
 ```bash
 git tag v0.1.0 && git push origin v0.1.0

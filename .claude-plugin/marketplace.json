@@ -7,7 +7,7 @@
     {
       "name": "claude-code-plugin-hud",
       "source": "./",
-      "description": "Lightweight, fixed-height statusline HUD for Claude Code, written in Rust."
+      "description": "A two-line statusline for Claude Code, written in Rust. Shows model, context window, cost, git, and rate limits."
     }
   ]
 }
