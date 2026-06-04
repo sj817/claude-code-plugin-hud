@@ -1,47 +1,14 @@
 # claude-code-plugin-hud
 
-A lightweight, **fixed-height** statusline HUD for [Claude Code](https://code.claude.com/docs/en/statusline), written in Rust.
+A clean, two-line statusline for [Claude Code](https://code.claude.com/docs/en/statusline) — your model, context budget, cost, git, and rate limits, always visible and never in the way.
 
-Most HUDs sprawl onto many lines, wrap on narrow terminals, and get shoved
-around when the input box grows. This one stays exactly two lines, adapts to
-your terminal width, and uses calm colors that follow your terminal theme.
+English · [简体中文](./README.zh-CN.md)
 
-English | [简体中文](./README.zh-CN.md)
+![demo](./demo.png)
 
-```
-██░░░░░░ 311k/1M(31%) | +1820 -800 | 💰 $16.20 | ⏱  2h13m | 🌿 main*        v2.1.161 ⚡high(Opus 4.8)
-🎉Cache: 310k/311k(99%) | 5h(17% 2h19m) · 7d(37% 2d11h) | 📁 Github/claude-code-plugin-hud
-```
+---
 
-## What it shows
-
-**Line 1** — live status:
-`context bar used/total(%)` · `+added/-removed lines` · `💰 cost` · `⏱ duration` · `🌿 branch(* if dirty)`, with `version` · `⚡effort(model)` pinned to the right corner.
-
-**Line 2** — session & limits:
-`🎉Cache: read/total(hit%)` · `5h(used% reset) · 7d(used% reset)` · `📁 folder`.
-
-## Design principles
-
-The statusline renders inline above the prompt — it is **not** a pinned overlay,
-and nothing can change that. So this HUD leans into the constraint:
-
-1. **Constant height.** Always exactly two lines (one when collapsed). Missing
-   data becomes a placeholder, never a dropped line — the HUD never jumps.
-2. **Width-aware, never wraps.** Reads `$COLUMNS` and drops the lowest-priority
-   segments until each line fits. A wrapped line silently doubles the height —
-   the exact failure this avoids.
-3. **One progress bar.** Only the context window gets a bar; everything else is
-   compact text.
-4. **Smart path.** The folder shows the full path when it fits ~40 chars,
-   otherwise trims leading components (never below the final one).
-5. **Calm colors.** Standard 16-color ANSI that follows your terminal theme,
-   plus a couple of deliberate accents. Context uses green→yellow→red by usage;
-   cache hit-rate is inverted (high = green = healthy).
-
-## Install
-
-This plugin ships as a Claude Code plugin via a marketplace:
+## Quick start
 
 ```text
 /plugin marketplace add sj817/claude-code-plugin-hud
@@ -49,64 +16,130 @@ This plugin ships as a Claude Code plugin via a marketplace:
 /claude-code-plugin-hud:setup
 ```
 
-`/claude-code-plugin-hud:setup` (plugin commands are namespaced by the plugin
-name) detects your OS/arch, picks the matching prebuilt binary from `dist/`, and
-writes the `statusLine` entry into your `settings.json`. (Plugins cannot set the
-main `statusLine` themselves — only a command can.)
+That's it. `:setup` picks the right prebuilt binary for your OS and writes the
+statusline into your settings. Your next message shows the HUD.
 
-### Manual
+> Plugin commands are namespaced, hence the `claude-code-plugin-hud:` prefix.
+
+---
+
+## What you're looking at
+
+```
+██░░░░░░ 397k/1M(40%) | +2318 -922 | 💰 $27.62 | ⏱ 3h4m | 🌿 main*    v2.1.161 ⚡high(Opus 4.8)
+🎉Cache: 396k/397k(99%) | 5h(25% 57m) · 7d(38% 2d10h) | 📁 D:/Github/claude-code-plugin-hud
+```
+
+**Line 1 — right now**
+
+| Segment            | Meaning                                              |
+| ------------------ | ---------------------------------------------------- |
+| `██░░ 397k/1M(40%)` | context window used / total (one bar, colored by load) |
+| `+2318 -922`       | lines added / removed this session                   |
+| `💰 $27.62`         | session cost                                         |
+| `⏱ 3h4m`           | wall-clock time since the session started            |
+| `🌿 main*`          | git branch (`*` = uncommitted changes)               |
+| `v2.1.161 ⚡high(Opus 4.8)` | Claude Code version · effort · model (pinned right) |
+
+**Line 2 — session & limits**
+
+| Segment                  | Meaning                                          |
+| ------------------------ | ------------------------------------------------ |
+| `🎉Cache: 396k/397k(99%)` | prompt-cache hit (high is good, shown green)     |
+| `5h(25% 57m)`            | 5-hour rate limit used, with reset countdown     |
+| `7d(38% 2d10h)`          | 7-day rate limit used, with reset countdown      |
+| `📁 …`                    | working directory (smart-trimmed when long)      |
+
+Anything Claude Code doesn't provide yet (e.g. rate limits before your first
+message) is simply omitted — the layout stays put.
+
+---
+
+## Why you might like it
+
+- **Stays two lines, always.** It never balloons or jumps, so it won't push your
+  prompt around.
+- **Fits your terminal.** Reads `$COLUMNS` and trims the least important segments
+  first instead of wrapping.
+- **One progress bar.** Only the context window gets a bar; the rest is quick text.
+- **Smart path.** Shows the full folder path when it fits, trims leading parts
+  when it doesn't.
+- **Calm colors.** Standard ANSI that follows your terminal theme — context goes
+  green → yellow → red as it fills; cache hit-rate is green when healthy.
+- **Tiny & fast.** A single ~310 KB Rust binary, no runtime dependencies.
+
+---
+
+## Configuration
+
+Optional — it works out of the box.
+
+| Env var               | Effect                                                |
+| --------------------- | ----------------------------------------------------- |
+| `CLAUDE_HUD_ONELINE`  | `1` renders a single line (frees the bottom mode row). |
+
+`$COLUMNS` / `$LINES` are provided by Claude Code (v2.1.153+); when the terminal
+is very short the HUD auto-collapses to one line.
+
+---
+
+## Manual setup
+
+If you'd rather not use `:setup`, point your statusline at the binary directly:
 
 ```jsonc
 // ~/.claude/settings.json
 {
   "statusLine": {
     "type": "command",
-    "command": "/abs/path/to/claude-hud",   // forward slashes on Windows
+    "command": "/absolute/path/to/claude-hud",   // forward slashes on Windows
     "padding": 2
   }
 }
 ```
 
-On older Claude Code (< v2.1.153) that doesn't export `$COLUMNS`, wrap it to
-compute width from the tty:
+On Claude Code older than v2.1.153 (which doesn't export `$COLUMNS`), wrap it to
+read the width from the tty:
 
 ```jsonc
-"command": "cols=$(stty size </dev/tty 2>/dev/null | awk '{print $2}'); export COLUMNS=${cols:-120}; exec /abs/path/to/claude-hud"
+"command": "cols=$(stty size </dev/tty 2>/dev/null | awk '{print $2}'); export COLUMNS=${cols:-120}; exec /absolute/path/to/claude-hud"
 ```
 
-## Configuration
+---
 
-| Env var               | Effect                                                        |
-| --------------------- | ------------------------------------------------------------- |
-| `CLAUDE_HUD_ONELINE`  | `1` forces a single line (keeps the built-in mode line free). |
-| `COLUMNS` / `LINES`   | Terminal size; Claude Code v2.1.153+ exports these.           |
-
-When `LINES` is very small the HUD auto-collapses to one line.
-
-## Build
+## Build from source
 
 ```bash
-cargo build --release            # native -> target/release/claude-hud
-scripts/build-all.sh             # all shipped targets -> dist/<triple>/
+cargo build --release        # -> target/release/claude-hud
 ```
 
-The release profile is tuned for size (`opt-level = "z"`, LTO, `panic = "abort"`,
-stripped) — the binary is ~310 KB with no runtime dependencies.
-
-Test with mock input:
+Try it with mock input:
 
 ```bash
 echo '{"model":{"display_name":"Opus 4.8 (1M context)"},"context_window":{"used_percentage":25,"total_input_tokens":50000,"context_window_size":200000},"session_id":"x"}' \
   | COLUMNS=120 ./target/release/claude-hud
 ```
 
-## Releasing
+Cross-compile every shipped platform into `dist/<triple>/`:
 
-`git tag v0.1.0 && git push --tags` triggers the release workflow, which builds
-all targets (Windows / macOS x64+arm64 / Linux x64+arm64) and attaches them to a
-GitHub Release. To ship binaries with the plugin so `/plugin install` works
-without a local build, place them under `dist/<triple>/` and commit.
+```bash
+scripts/build-all.sh
+```
+
+---
+
+## Releases
+
+Push a version tag and CI does the rest — builds Windows / macOS (x64 + arm64) /
+Linux (x64 + arm64), commits the binaries into `dist/`, and publishes a GitHub
+Release:
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+---
 
 ## License
 
-MIT
+[MIT](./LICENSE)

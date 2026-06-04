@@ -191,8 +191,7 @@ fn line2(data: &StatusInput) -> Vec<Seg> {
     if let Some(cu) = cw.current_usage.as_ref() {
         let total_in =
             cu.input_tokens + cu.cache_creation_input_tokens + cu.cache_read_input_tokens;
-        if total_in > 0 {
-            let rate = cu.cache_read_input_tokens * 100 / total_in;
+        if let Some(rate) = (cu.cache_read_input_tokens * 100).checked_div(total_in) {
             let read = fmt_tokens(cu.cache_read_input_tokens);
             let tot = fmt_tokens(total_in);
             segs.push(Seg::new(
