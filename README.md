@@ -6,106 +6,84 @@ English · [简体中文](./README.zh-CN.md)
 
 ![demo](./demo.png)
 
----
-
-## Quick start
+## Install
 
 ```text
 /plugin marketplace add sj817/claude-code-plugin-hud
 /plugin install claude-code-plugin-hud
+/reload-plugins
 /claude-code-plugin-hud:setup
 ```
 
-That's it. `:setup` picks the right prebuilt binary for your OS and writes the
-statusline into your settings. Your next message shows the HUD.
+`/reload-plugins` activates the freshly installed command (or just restart Claude
+Code). Then `/claude-code-plugin-hud:setup` picks the right prebuilt binary for
+your OS and writes the statusline into your settings — your next message shows
+the HUD.
 
-> Plugin commands are namespaced, hence the `claude-code-plugin-hud:` prefix.
+> Plugin commands are namespaced by the plugin, hence the `claude-code-plugin-hud:` prefix.
 
----
-
-## What you're looking at
+## Reading the HUD
 
 ```
 ██░░░░░░ 397k/1M(40%) | +2318 -922 | 💰 $27.62 | ⏱ 3h4m | 🌿 main*    v2.1.161 ⚡high(Opus 4.8)
 🎉Cache: 396k/397k(99%) | 5h(25% 57m) · 7d(38% 2d10h) | 📁 D:/Github/claude-code-plugin-hud
 ```
 
-**Line 1 — right now**
+**Top line — what's happening right now**, left to right:
 
-| Segment            | Meaning                                              |
-| ------------------ | ---------------------------------------------------- |
-| `██░░ 397k/1M(40%)` | context window used / total (one bar, colored by load) |
-| `+2318 -922`       | lines added / removed this session                   |
-| `💰 $27.62`         | session cost                                         |
-| `⏱ 3h4m`           | wall-clock time since the session started            |
-| `🌿 main*`          | git branch (`*` = uncommitted changes)               |
-| `v2.1.161 ⚡high(Opus 4.8)` | Claude Code version · effort · model (pinned right) |
+- `██░░ 397k/1M(40%)` — context window, used / total. The one progress bar, shifting green → yellow → red as it fills.
+- `+2318 -922` — lines added and removed this session.
+- `💰 $27.62` — session cost.
+- `⏱ 3h4m` — wall-clock time since the session started.
+- `🌿 main*` — git branch; the `*` means there are uncommitted changes.
+- `v2.1.161 ⚡high(Opus 4.8)` — Claude Code version, effort level, and model, pinned to the right.
 
-**Line 2 — session & limits**
+**Bottom line — session and limits:**
 
-| Segment                  | Meaning                                          |
-| ------------------------ | ------------------------------------------------ |
-| `🎉Cache: 396k/397k(99%)` | prompt-cache hit (high is good, shown green)     |
-| `5h(25% 57m)`            | 5-hour rate limit used, with reset countdown     |
-| `7d(38% 2d10h)`          | 7-day rate limit used, with reset countdown      |
-| `📁 …`                    | working directory (smart-trimmed when long)      |
+- `🎉Cache: 396k/397k(99%)` — prompt-cache hit rate. High is good, so it stays green.
+- `5h(25% 57m)` and `7d(38% 2d10h)` — rate limits used, each with its reset countdown.
+- `📁 …` — your working directory, trimmed from the front when the path is long.
 
-Anything Claude Code doesn't provide yet (e.g. rate limits before your first
-message) is simply omitted — the layout stays put.
+Anything Claude Code hasn't reported yet (rate limits before your first message,
+for example) is simply left out — the layout never shifts.
 
----
+## What makes it pleasant
 
-## Why you might like it
-
-- **Stays two lines, always.** It never balloons or jumps, so it won't push your
-  prompt around.
-- **Fits your terminal.** Reads `$COLUMNS` and trims the least important segments
-  first instead of wrapping.
-- **One progress bar.** Only the context window gets a bar; the rest is quick text.
-- **Smart path.** Shows the full folder path when it fits, trims leading parts
-  when it doesn't.
-- **Calm colors.** Standard ANSI that follows your terminal theme — context goes
-  green → yellow → red as it fills; cache hit-rate is green when healthy.
-- **Tiny & fast.** A single ~310 KB Rust binary, no runtime dependencies.
-
----
+- **Always two lines.** It never balloons or jumps, so it won't push your prompt around.
+- **Fits the terminal.** Reads `$COLUMNS` and drops the least important pieces before it would ever wrap.
+- **One bar, on purpose.** Only the context window gets a progress bar; everything else is quick to read.
+- **Calm, themed colors.** Standard ANSI that follows your terminal — no neon, no fighting your palette.
+- **Tiny and fast.** A single ~310 KB Rust binary with no runtime dependencies.
 
 ## Configuration
 
-Optional — it works out of the box.
+It works out of the box; everything below is optional.
 
-| Env var               | Effect                                                |
-| --------------------- | ----------------------------------------------------- |
-| `CLAUDE_HUD_ONELINE`  | `1` renders a single line (frees the bottom mode row). |
-
-`$COLUMNS` / `$LINES` are provided by Claude Code (v2.1.153+); when the terminal
-is very short the HUD auto-collapses to one line.
-
----
+Set `CLAUDE_HUD_ONELINE=1` to render a single line — handy when you want to keep
+the built-in mode row below the prompt visible. `$COLUMNS` and `$LINES` come from
+Claude Code (v2.1.153+), and the HUD collapses to one line on a very short terminal.
 
 ## Manual setup
 
-If you'd rather not use `:setup`, point your statusline at the binary directly:
+Prefer not to use `:setup`? Point your statusline straight at the binary:
 
 ```jsonc
 // ~/.claude/settings.json
 {
   "statusLine": {
     "type": "command",
-    "command": "/absolute/path/to/claude-hud",   // forward slashes on Windows
+    "command": "/absolute/path/to/claude-hud",
     "padding": 2
   }
 }
 ```
 
-On Claude Code older than v2.1.153 (which doesn't export `$COLUMNS`), wrap it to
-read the width from the tty:
+On Windows, write the path with forward slashes. On Claude Code older than
+v2.1.153 (no `$COLUMNS`), read the width from the tty instead:
 
 ```jsonc
 "command": "cols=$(stty size </dev/tty 2>/dev/null | awk '{print $2}'); export COLUMNS=${cols:-120}; exec /absolute/path/to/claude-hud"
 ```
-
----
 
 ## Build from source
 
@@ -113,32 +91,24 @@ read the width from the tty:
 cargo build --release        # -> target/release/claude-hud
 ```
 
-Try it with mock input:
+Give it a spin with mock input:
 
 ```bash
 echo '{"model":{"display_name":"Opus 4.8 (1M context)"},"context_window":{"used_percentage":25,"total_input_tokens":50000,"context_window_size":200000},"session_id":"x"}' \
   | COLUMNS=120 ./target/release/claude-hud
 ```
 
-Cross-compile every shipped platform into `dist/<triple>/`:
-
-```bash
-scripts/build-all.sh
-```
-
----
+`scripts/build-all.sh` cross-compiles every shipped platform into `dist/<triple>/`.
 
 ## Releases
 
-Push a version tag and CI does the rest — builds Windows / macOS (x64 + arm64) /
-Linux (x64 + arm64), commits the binaries into `dist/`, and publishes a GitHub
-Release:
+Push a version tag and CI does the rest — it builds Windows, macOS (x64 + arm64),
+and Linux (x64 + arm64), commits the binaries into `dist/`, and publishes a
+GitHub Release:
 
 ```bash
 git tag v0.1.0 && git push origin v0.1.0
 ```
-
----
 
 ## License
 
