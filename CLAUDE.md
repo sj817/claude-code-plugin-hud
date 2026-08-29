@@ -17,8 +17,16 @@ plugin.
 - It runs after each assistant message, after `/compact`, and on permission/vim
   changes (debounced 300ms). It does not re-run while you type.
 - Terminal size comes from the `COLUMNS`/`LINES` env vars (v2.1.153+), not
-  `tput`.
+  `tput`. `COLUMNS` is the *whole* terminal: Claude Code then insets the
+  statusline by `statusLine.padding` columns per side, so the drawable width is
+  narrower than `COLUMNS`.
+- Width math must count emoji as terminals paint them. `unicode-width` follows
+  East_Asian_Width, which calls `⏱` (U+23F1) one cell; `char_cells` in
+  `render.rs` overrides that range to 2.
 - Many JSON fields are optional or null (see `src/input.rs`). Never unwrap.
+- Newer fields are also version-gated: `prompt_cache` and
+  `rate_limits.spend_limit` need v2.1.251+, `pr.kind` needs v2.1.234+. Model
+  them as `Option` and keep a fallback, so older builds still render fully.
 - Permission mode (auto/plan/…) is not in the statusline JSON, so the HUD does
   not show it. Hooks expose `permission_mode`, but no hook fires on a bare
   shift+tab toggle, so it cannot be shown reliably. Omitted intentionally.
@@ -27,7 +35,7 @@ plugin.
 
 | File           | Responsibility                                                              |
 | -------------- | -------------------------------------------------------------------------- |
-| `src/main.rs`  | Read stdin, parse, read `$COLUMNS`/`$LINES`, print.                         |
+| `src/main.rs`  | Read stdin, parse, read `$COLUMNS`/`$LINES`, subtract the statusline padding, print. |
 | `src/input.rs` | Serde structs; every field optional/defaulted.                             |
 | `src/render.rs`| Layout rules: constant height, width-aware drop by priority, single bar, smart path. Start here for display changes. |
 | `src/git.rs`   | Branch + dirty flag, cached per `session_id` (5s TTL).                      |
@@ -36,18 +44,28 @@ plugin.
 ## Layout
 
 ```
-<bar> used/total(%) | +add -del | 💰 cost | ⏱ dur | 🌿 branch*    version ⚡effort(model)
-Quota: 5h % reset · 7d % reset | 🎉Cache: read/total(hit%) | 📁 smart-path
+<bar> used/total(%) | +add -del | 💰 cost | ⏱ dur | 🌿 branch*    version 🚀 ⚡effort(model)
+Quota: 5h % reset · 7d % reset · $ % reset | 🎉Cache: hit% warm-left | 📁 smart-path
 ```
 
 Line 2 leads with the quota segment (the focal point): a teal `Quota:` label,
 bright window labels, the `%` in four 25% bands (green/yellow/orange/red), and a
-dim reset countdown. The `(%)` on the context bar and the cache are left uncolored.
+dim reset countdown. The `$` window is the gateway spend limit and only appears
+when Claude Code sends one; it is the single window whose `%` can exceed 100.
+The `(%)` on the context bar and the cache are left uncolored.
+
+The cache segment prefers the session-wide `prompt_cache.hit_ratio` plus the
+countdown to `expires_at`; `legacy_cache_seg` renders the old
+`read/total(hit%)` from `current_usage` for builds that send no `prompt_cache`.
+The 🚀 in the right corner marks `fast_mode`.
 
 ## Invariants (do not regress)
 
 1. Output is exactly 2 lines (1 when `CLAUDE_HUD_ONELINE=1` or `LINES` is tiny).
-2. A line never exceeds `$COLUMNS`. Drop segments, don't wrap.
+2. A line never exceeds the drawable width. Drop segments, don't wrap.
+   Drawable is `$COLUMNS` minus twice `statusLine.padding` (Claude Code insets
+   the statusline and cuts the overflow with an `…`); `CLAUDE_HUD_MARGIN`
+   overrides the reservation.
 3. At most one progress bar (the context window).
 4. Build is warning-free; CI enforces `cargo clippy -- -D warnings`.
 

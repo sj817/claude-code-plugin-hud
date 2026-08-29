@@ -23,6 +23,12 @@ pub struct StatusInput {
     pub rate_limits: Option<RateLimits>,
     /// Current reasoning effort. Absent when the model has no effort parameter.
     pub effort: Option<Effort>,
+    /// Prompt-cache statistics for the main conversation. Requires Claude Code
+    /// v2.1.251+, and absent until the conversation's first API response.
+    pub prompt_cache: Option<PromptCache>,
+    /// Whether fast mode is on for this session.
+    #[serde(default)]
+    pub fast_mode: bool,
     /// Claude Code version, e.g. `2.1.161`.
     #[serde(default)]
     pub version: String,
@@ -92,11 +98,36 @@ pub struct Cost {
 pub struct RateLimits {
     pub five_hour: Option<RateWindow>,
     pub seven_day: Option<RateWindow>,
+    /// Spend limit applied behind a Claude apps gateway. Requires Claude Code
+    /// v2.1.251+ and absent for everyone else. Unlike the other two windows its
+    /// `used_percentage` can exceed 100 once the limit is passed.
+    pub spend_limit: Option<RateWindow>,
 }
-
 #[derive(Debug, Default, Deserialize)]
 pub struct RateWindow {
     pub used_percentage: Option<f64>,
     /// Unix epoch seconds when this window resets.
     pub resets_at: Option<i64>,
+}
+
+/// Session prompt-cache statistics. Only the fields the HUD renders are
+/// modelled; the object carries several more (`ttl`, `requests`, `misses`,
+/// token counts) that we ignore.
+#[derive(Debug, Default, Deserialize)]
+pub struct PromptCache {
+    /// The cached prefix is still inside its TTL. `false` once the last
+    /// response reported no cache tokens, even while `caching_observed` holds.
+    #[serde(default)]
+    pub warm: bool,
+    /// Some response this session reported cache tokens. `false` means caching
+    /// is off, or the provider/gateway does not report it — we then show
+    /// nothing rather than a misleading 0%.
+    #[serde(default)]
+    pub caching_observed: bool,
+    /// Cache reads over all input tokens this session, 0.0..1.0. `null` while
+    /// every one of those counts is still zero.
+    pub hit_ratio: Option<f64>,
+    /// Epoch seconds at which the cached prefix goes cold. Claude Code re-runs
+    /// the statusline when it passes, so a countdown here stays honest.
+    pub expires_at: Option<i64>,
 }

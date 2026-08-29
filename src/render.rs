@@ -1,10 +1,10 @@
 //! Builds the HUD lines.
 //!
 //! Layout (two lines):
-//!   Line 1 — `███░ 252k/1M(25%) | +1507 -542 | 💰 $10.95 | ⏱  1h36m | 🌿 main* ... v2.1.161 ⚡high(Opus 4.8)`
+//!   Line 1 — `███░ 252k/1M(25%) | +1507 -542 | 💰 $10.95 | ⏱ 1h36m | 🌿 main* ... v2.1.251 🚀 ⚡high(Opus 5)`
 //!            context bar · lines changed · cost · duration · git on the left;
-//!            version, effort and model right-aligned in the corner.
-//!   Line 2 — `Quota: 5h 10% 2h26m · 7d 35% 2d12h | 🎉Cache: 528k/550k(99%) | 📁 Github/proj`
+//!            version, fast-mode rocket, effort and model right-aligned in the corner.
+//!   Line 2 — `Quota: 5h 10% 2h26m · 7d 35% 2d12h · $ 63% 20d3h | 🎉Cache: 91% 47m | 📁 Github/proj`
 //!            quota usage (the focus), cache, folder (last; smart-trimmed to ~40 chars).
 //!
 //! Invariants: constant height; both lines are width-aware and drop their
@@ -13,10 +13,10 @@
 //! `theme` so related fields read as related.
 
 use crate::git;
-use crate::input::{Cost, StatusInput};
+use crate::input::{ContextWindow, Cost, StatusInput};
 use crate::theme::{self, paint, DIM, RESET};
 use std::time::{SystemTime, UNIX_EPOCH};
-use unicode_width::UnicodeWidthStr;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 const BAR_WIDTH: usize = 8;
 const PIPE_PLAIN: &str = " | ";
@@ -42,7 +42,7 @@ impl Seg {
         }
     }
     fn width(&self) -> usize {
-        UnicodeWidthStr::width(self.plain.as_str())
+        display_width(&self.plain)
     }
 }
 
@@ -77,8 +77,8 @@ fn line1(data: &StatusInput, cols: usize) -> String {
     if let Some(ms) = cost.total_duration_ms {
         let d = fmt_duration(ms);
         segs.push(Seg::new(
-            format!("\u{23f1}  {d}"),
-            format!("\u{23f1}  {}{d}{RESET}", theme::TIME),
+            format!("\u{23f1} {d}"),
+            format!("\u{23f1} {}{d}{RESET}", theme::TIME),
             45,
         ));
     }
@@ -112,12 +112,16 @@ fn line1(data: &StatusInput, cols: usize) -> String {
     }
 }
 
-/// `v2.1.161 ⚡high(Opus 4.8)` — version gray, effort orange, model teal.
+/// `v2.1.251 🚀 ⚡high(Opus 5)` — version gray, a rocket while fast mode is on,
+/// effort orange, model teal.
 fn right_corner(data: &StatusInput) -> String {
     let model = compact_model(&data.model.display_name);
     let mut parts = Vec::new();
     if !data.version.is_empty() {
         parts.push(format!("{}v{}{RESET}", theme::VERSION, data.version));
+    }
+    if data.fast_mode {
+        parts.push("\u{1f680}".to_string());
     }
     match data.effort.as_ref().filter(|e| !e.level.is_empty()) {
         Some(e) => parts.push(format!(
@@ -184,7 +188,6 @@ fn lines_seg(cost: &Cost) -> Option<Seg> {
 // ---- line 2 ---------------------------------------------------------------
 
 fn line2(data: &StatusInput) -> Vec<Seg> {
-    let cw = &data.context_window;
     let mut segs = Vec::new();
 
     // Rate limits FIRST — this is the line's focal point (quota usage).
@@ -192,23 +195,9 @@ fn line2(data: &StatusInput) -> Vec<Seg> {
         segs.push(seg);
     }
 
-    // 🎉 Cache: read/total(rate)
-    if let Some(cu) = cw.current_usage.as_ref() {
-        let total_in =
-            cu.input_tokens + cu.cache_creation_input_tokens + cu.cache_read_input_tokens;
-        if let Some(rate) = (cu.cache_read_input_tokens * 100).checked_div(total_in) {
-            let read = fmt_tokens(cu.cache_read_input_tokens);
-            let tot = fmt_tokens(total_in);
-            segs.push(Seg::new(
-                format!("\u{1f389}Cache: {read}/{tot}({rate}%)"),
-                format!(
-                    "\u{1f389}{ca}Cache:{RESET} {m}{read}/{tot}{RESET}({rate}%)",
-                    ca = theme::CACHE,
-                    m = theme::MUTE
-                ),
-                40,
-            ));
-        }
+    // 🎉 Cache: session hit ratio, and how long the prefix stays warm.
+    if let Some(seg) = cache_seg(data) {
+        segs.push(seg);
     }
 
     // 📁 folder LAST — smart path: show the full path if it fits the budget,
@@ -225,15 +214,21 @@ fn line2(data: &StatusInput) -> Vec<Seg> {
     segs
 }
 
-/// `Quota: 5h 56% 1h30m · 7d 52% 2d1h` — the quota-usage focus. A teal `Quota:`
-/// label leads it; the window label is bright, the % carries one of four 25%
-/// bands (green/yellow/orange/red), and the reset countdown stays dim. Highest
-/// priority on line 2 so it is the last thing dropped when space runs out.
+/// `Quota: 5h 56% 1h30m · 7d 52% 2d1h · $ 63% 20d3h` — the quota-usage focus. A
+/// teal `Quota:` label leads it; the window label is bright, the % carries one
+/// of four 25% bands (green/yellow/orange/red), and the reset countdown stays
+/// dim. Highest priority on line 2 so it is the last thing dropped when space
+/// runs out. `$` is the gateway spend limit, sent only to users who have one;
+/// it is the single window whose % can read above 100.
 fn rate_seg(data: &StatusInput) -> Option<Seg> {
     let rl = data.rate_limits.as_ref()?;
     let mut plain = Vec::new();
     let mut rendered = Vec::new();
-    for (label, w) in [("5h", rl.five_hour.as_ref()), ("7d", rl.seven_day.as_ref())] {
+    for (label, w) in [
+        ("5h", rl.five_hour.as_ref()),
+        ("7d", rl.seven_day.as_ref()),
+        ("$", rl.spend_limit.as_ref()),
+    ] {
         if let Some(w) = w {
             if let Some(p) = w.used_percentage {
                 let cd = w
@@ -258,6 +253,60 @@ fn rate_seg(data: &StatusInput) -> Option<Seg> {
     let plain_s = format!("Quota: {}", plain.join(" \u{b7} "));
     let rendered_s = format!("{q}Quota:{RESET} {}", rendered.join(&dot), q = theme::QUOTA);
     Some(Seg::new(plain_s, rendered_s, 60))
+}
+
+/// `🎉Cache: 91% 47m` — the session-wide hit ratio Claude Code computes, plus
+/// the time left before the cached prefix goes cold (`cold` once it has). The
+/// countdown is trustworthy: Claude Code re-runs the statusline at `expires_at`.
+///
+/// Claude Code older than v2.1.251 sends no `prompt_cache`, so we fall back to
+/// the ratio derived from `current_usage` in the most recent response.
+fn cache_seg(data: &StatusInput) -> Option<Seg> {
+    let Some(pc) = data.prompt_cache.as_ref() else {
+        return legacy_cache_seg(&data.context_window);
+    };
+    // Caching off, or a provider that does not report it: say nothing rather
+    // than show a 0% that actually means "unknown".
+    if !pc.caching_observed {
+        return None;
+    }
+    let pct = (pc.hit_ratio? * 100.0).clamp(0.0, 100.0);
+    let tail = if pc.warm {
+        pc.expires_at
+            .map(|t| format!(" {}", fmt_countdown(t)))
+            .unwrap_or_default()
+    } else {
+        " cold".to_string()
+    };
+    Some(Seg::new(
+        format!("\u{1f389}Cache: {pct:.0}%{tail}"),
+        format!(
+            "\u{1f389}{ca}Cache:{RESET} {pct:.0}%{m}{tail}{RESET}",
+            ca = theme::CACHE,
+            m = theme::MUTE
+        ),
+        40,
+    ))
+}
+
+/// Pre-v2.1.251 shape: `🎉Cache: 528k/550k(99%)`, the cache share of the most
+/// recent API response alone. `current_usage` is null before the first call and
+/// again right after `/compact`.
+fn legacy_cache_seg(cw: &ContextWindow) -> Option<Seg> {
+    let cu = cw.current_usage.as_ref()?;
+    let total_in = cu.input_tokens + cu.cache_creation_input_tokens + cu.cache_read_input_tokens;
+    let rate = (cu.cache_read_input_tokens * 100).checked_div(total_in)?;
+    let read = fmt_tokens(cu.cache_read_input_tokens);
+    let tot = fmt_tokens(total_in);
+    Some(Seg::new(
+        format!("\u{1f389}Cache: {read}/{tot}({rate}%)"),
+        format!(
+            "\u{1f389}{ca}Cache:{RESET} {m}{read}/{tot}{RESET}({rate}%)",
+            ca = theme::CACHE,
+            m = theme::MUTE
+        ),
+        40,
+    ))
 }
 
 // ---- shared ---------------------------------------------------------------
@@ -328,6 +377,24 @@ fn smart_path(path: &str) -> String {
     parts[start..].join("/")
 }
 
+/// Cells a terminal actually paints for `c`.
+///
+/// `unicode-width` follows East_Asian_Width, which calls U+23F1 `⏱` neutral —
+/// one cell — while terminals draw it as a two-cell emoji. Counting it as one
+/// made line 1 a cell wider than we believed, and Claude Code cut the right
+/// corner off with an `…`.
+fn char_cells(c: char) -> usize {
+    match c {
+        '\u{23f0}'..='\u{23f3}' => 2,
+        _ => UnicodeWidthChar::width(c).unwrap_or(0),
+    }
+}
+
+/// Painted width of a plain (escape-free) string.
+fn display_width(s: &str) -> usize {
+    s.chars().map(char_cells).sum()
+}
+
 /// Visible width of a string that may contain ANSI SGR codes.
 fn strip_width(s: &str) -> usize {
     let mut w = 0;
@@ -340,7 +407,7 @@ fn strip_width(s: &str) -> usize {
                 in_esc = false;
             }
         } else {
-            w += UnicodeWidthStr::width(c.to_string().as_str());
+            w += char_cells(c);
         }
     }
     w

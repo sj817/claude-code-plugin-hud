@@ -40,8 +40,8 @@ It installs to `~/.claude/statusline/`; re-run any time to update. The log follo
 ## Anatomy
 
 ```text
-███░░░░░ 397k/1M(40%) | +2318 -922 | 💰 $27.62 | ⏱ 3h4m | 🌿 main*    v2.1.161 ⚡high(Opus 4.8)
-Quota: 5h 25% 57m · 7d 38% 2d10h | 🎉Cache: 396k/397k(99%) | 📁 D:/Github/claude-code-plugin-hud
+███░░░░░ 397k/1M(40%) | +2318 -922 | 💰 $27.62 | ⏱ 3h4m | 🌿 main*    v2.1.251 🚀 ⚡high(Opus 5)
+Quota: 5h 25% 57m · 7d 38% 2d10h | 🎉Cache: 99% 47m | 📁 D:/Github/claude-code-plugin-hud
 ```
 
 ### Line 1
@@ -53,32 +53,38 @@ Quota: 5h 25% 57m · 7d 38% 2d10h | 🎉Cache: 396k/397k(99%) | 📁 D:/Github/c
 | Cost | `💰 $27.62` | Session cost in USD. |
 | Duration | `⏱ 3h4m` | Wall-clock time since the session started. |
 | Branch | `🌿 main*` | Git branch. A trailing `*` marks a dirty working tree. |
-| Version · effort(model) | `v2.1.161 ⚡high(Opus 4.8)` | Right-aligned: Claude Code version, reasoning effort, model. |
+| Version · effort(model) | `v2.1.251 🚀 ⚡high(Opus 5)` | Right-aligned: Claude Code version, a 🚀 while fast mode is on, reasoning effort, model. |
 
 ### Line 2
 
 | Segment | Example | Meaning |
 | --- | --- | --- |
-| Rate limits | `Quota: 5h 25% 57m · 7d 38% 2d10h` | Plan-quota usage per window, with reset countdown. Line 2's focal point: the `%` is colored in four 25% bands — green `<25`, yellow `<50`, orange `<75`, red `≥75`. |
-| Cache | `🎉Cache: 396k/397k(99%)` | Prompt-cache read / total, with hit rate. |
+| Rate limits | `Quota: 5h 25% 57m · 7d 38% 2d10h` | Plan-quota usage per window, with reset countdown. The focal point of line 2: the `%` is colored in four 25% bands — green `<25`, yellow `<50`, orange `<75`, red `≥75`. A third window `$ 63% 20d3h` joins them when a gateway spend limit applies to you (Claude Code v2.1.251+); it is the one window whose `%` can read above 100. |
+| Cache | `🎉Cache: 99% 47m` | Prompt-cache hit rate for the session, and how long the cached prefix stays warm (`cold` once it has expired). Older Claude Code builds send no cache statistics, so the HUD falls back to `396k/397k(99%)`, the cache share of the most recent response. |
 | Folder | `📁 D:/Github/...` | Working directory, trimmed from the front when long (never below the final component). |
 
 Notes:
 
 - Height is always two lines. Segments never wrap; the lowest-priority ones drop when a line exceeds `$COLUMNS`.
-- Missing data is omitted, not padded. Rate limits are absent before the first API response; the cache breakdown is null right after `/compact`.
-- Colors stay on the standard 16-color ANSI palette, plus a pink `Cache:` label, a soft-gold folder, and an orange band in the quota scale. The `(%)` on the bar and cache are left plain.
+- Missing data is omitted, not padded. Rate limits are absent before the first API response; the cache segment is absent until then, and while prompt caching is off.
+- Colors stay on the standard 16-color ANSI palette, plus a pink `Cache:` label, a soft-gold folder, and an orange band in the quota scale. The `%` on the bar and cache are left plain.
 - Permission mode (auto/plan) is not shown: it is not present in the statusline JSON.
 
 ## Configuration
 
-The only setting is `CLAUDE_HUD_ONELINE`. Set it to `1` (or `true`) to render line 1 only, which keeps Claude Code's mode row visible below the prompt:
+`CLAUDE_HUD_ONELINE` renders line 1 only, which keeps Claude Code's mode row visible below the prompt. Set it to `1` (or `true`):
 
 ```text
 CLAUDE_HUD_ONELINE=1
 ```
 
 The HUD also collapses to one line when `$LINES` is below 10. `$COLUMNS` and `$LINES` come from Claude Code v2.1.153+; width falls back to 80 when absent.
+
+`$COLUMNS` is the whole terminal, but Claude Code draws the statusline inset by `statusLine.padding` columns on each side and cuts the overflow with an `…`. The HUD reads that padding out of your settings and reserves it. `CLAUDE_HUD_MARGIN` overrides the reservation if your terminal needs a different one:
+
+```text
+CLAUDE_HUD_MARGIN=4
+```
 
 ## Manual setup
 
