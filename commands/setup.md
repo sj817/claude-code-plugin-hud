@@ -78,13 +78,16 @@ Notes:
   updating while the conversation is idle. Event-driven updates still run.
   Updating the binary alone does not add this setting; re-run setup for
   existing installations too.
-- The binary already emits exactly two fixed-height lines and adapts to
-  `$COLUMNS`, so no extra wrapper or width flags are needed.
+- The default uses a model badge and plain context text/meter on row one. Row two shows cache,
+  version/duration, branch, and the marked full path as plain text, adapting to `$COLUMNS`.
+  `CLAUDE_HUD_STYLE=classic` selects the original two-line layout.
+  `CLAUDE_HUD_ASCII=1` uses plain header joins/meter.
+  No extra wrapper or width flags are needed.
 
 ## Step 4 — Confirm
 
 Tell the user the statusline is configured and that changes appear on their next
-interaction with Claude Code. Show them a one-line preview by piping mock JSON:
+interaction with Claude Code. Show them a preview by piping mock JSON:
 
 ```bash
 echo '{"model":{"display_name":"Opus"},"workspace":{"current_dir":"'"$PWD"'"},"context_window":{"used_percentage":42},"cost":{"total_cost_usd":1.23,"total_duration_ms":185000},"session_id":"preview"}' | COLUMNS=120 "<ABSOLUTE_PATH_TO_BINARY>"

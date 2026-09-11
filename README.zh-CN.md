@@ -1,10 +1,8 @@
 # claude-code-plugin-hud
 
-用 Rust 编写的 [Claude Code](https://code.claude.com/docs/zh-CN/statusline) 两行状态栏,显示模型、上下文窗口、花费、git 分支和速率限制。
+用 Rust 编写的 [Claude Code](https://code.claude.com/docs/zh-CN/statusline) 简约状态栏,显示模型、上下文窗口、花费、git 分支、速率限制和缓存状态。
 
 [English](./README.md) · 简体中文
-
-![demo](./demo.png)
 
 ## 安装
 
@@ -37,7 +35,40 @@ irm https://raw.githubusercontent.com/sj817/claude-code-plugin-hud/main/scripts/
 
 安装到 `~/.claude/statusline/`,随时重跑即可更新。日志会跟随你的系统语言(中文或英文)。可选覆盖:`CLAUDE_HUD_VERSION` 固定某个版本(如 `v0.1.6`),`CLAUDE_HUD_LANG` 强制语言(`zh` / `en`)。
 
-## 组成
+## 双行布局
+
+第一行只保留模型底块,上下文文字和进度条不加底色,进度条后用 ` · ` 连接额度信息,最后显示费用。
+第二行用普通文本显示缓存、版本/会话时长、分支和路径,不加底色块和连接箭头,路径固定在最右一项。
+板块之间用细竖线 ` │ ` 分隔,模型和分支不加图标。
+
+```text
+ Opus 5 · high ▶ ctx 32% ━━━━━━ · 5h 24% 1h18m · 7d 38% 2d10h │ $12.84
+Cache: 91%(47m) │ v2.1.257 · 1h42m │ main* │ › D:/Github/claude-code-plugin-hud
+```
+
+窗口变窄时先收起上下文刻度,再按优先级省略整段。额度和缓存优先于上下文和花费;
+内容不换行,也不会靠填充空格推到终端最右边。
+额度重置倒计时始终和百分比放在一起,紧凑显示时也不省略。第二行路径始终在最后;
+放得下时保留完整路径,所有反斜杠统一显示为 `/`。路径前加小箭头 `›`,父目录用经典中性灰,项目名用清亮青色。
+`origin` 指向 GitHub 时,路径通过 OSC 8 链接到仓库,省略后的路径也可点击。
+在支持超链接的终端中按 Ctrl+点击(macOS 为 Cmd+点击)打开;支持 HTTPS 和标准 GitHub SSH 远程地址。
+缺少或无法识别远程地址时保留普通路径。若 Claude Code 未识别终端的超链接能力,
+可按[官方文档](https://code.claude.com/docs/zh-CN/statusline#可点击链接)在启动前设置 `FORCE_HYPERLINK=1`。
+窗口过窄时先省略版本和时长,优先保留项目名,必要时再省略路径前部。
+额度百分比表示**已用**额度:低于 50% 为青色,50–74% 为黄色,75–89% 为橙色,90% 起为红色。
+网关消费额度仍可以超过 100%。
+
+缓存命中率复用经典粉色(`theme::CACHE`),费用复用经典金色(`theme::COST`),分支用鲜艳蓝青色(`#00bfff`)。
+`ctx`、额度/缓存倒计时、`Cache:`、版本号和父目录统一复用经典中性灰弱化样式;额度窗口标签和会话时长复用经典白色。
+上下文百分比和进度条同步使用五档鲜艳颜色:低于 25% 蓝青、25–49% 绿、50–69% 黄、70–89% 橙、90% 起红。
+额度时间不加括号。缓存显示为 `Cache: 99%(48m)`,百分比和括号间不留空格。
+分支尾部的珊瑚红 `*` 表示有未提交修改。双行布局省略增删行数和 token 总量,下方的经典布局保留这些详情。
+`CLAUDE_HUD_ASCII=1` 使用普通连接符、分隔符和刻度。
+设置 `CLAUDE_HUD_STYLE=classic` 可切回经典布局。
+
+## 经典布局
+
+![经典布局](./demo.png)
 
 ```text
 ███░░░░░ 397k/1M(40%) | +2318 -922 | 💰 $27.62 | ⏱ 3h4m | 🌿 main*    v2.1.251 🚀 ⚡high(Opus 5)
@@ -76,13 +107,13 @@ Setup 和安装器会将 `statusLine.refreshInterval` 设为 `30` 秒,让缓存�
 倒计时在对话空闲时继续更新。已有用户需重新运行 setup/安装器,或在 `statusLine`
 配置中添加 `"refreshInterval": 30`;仅更新二进制不会开启定时刷新。
 
-`CLAUDE_HUD_ONELINE` 只渲染第一行,从而让 Claude Code 输入框下方的模式行保持可见。设为 `1`(或 `true`):
+两种布局默认都占两行。`CLAUDE_HUD_ONELINE` 可以只渲染第一行。设为 `1`(或 `true`):
 
 ```text
 CLAUDE_HUD_ONELINE=1
 ```
 
-当 `$LINES` 小于 10 时,HUD 也会收成一行。`$COLUMNS` 和 `$LINES` 由 Claude Code v2.1.153+ 提供;缺失时宽度回退为 80。
+当 `$LINES` 小于 10 时,两种布局也会收成一行。`$COLUMNS` 和 `$LINES` 由 Claude Code v2.1.153+ 提供;缺失时宽度回退为 80。
 
 Claude Code 已经为状态栏提供了内置水平留白,所以安装器把额外的 `statusLine.padding` 保持为 `0`。HUD 还会在 `$COLUMNS` 内预留四列,给内置边距以及与状态栏共用一行的通知区。若你的终端需要别的值,用 `CLAUDE_HUD_MARGIN` 覆盖:
 

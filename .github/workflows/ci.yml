@@ -35,10 +35,14 @@ jobs:
       - name: Build
         run: cargo build --release
 
-      - name: Smoke test (renders two lines)
+      - name: Smoke test (minimal and classic heights)
         run: |
           out=$(echo '{"model":{"display_name":"Opus 4.8 (1M context)"},"workspace":{"current_dir":"/home/u/proj"},"context_window":{"used_percentage":25,"total_input_tokens":50000,"context_window_size":200000},"cost":{"total_cost_usd":1.0,"total_duration_ms":60000,"total_lines_added":10,"total_lines_removed":2},"version":"2.1.161","session_id":"ci"}' \
-            | COLUMNS=120 ./target/release/claude-hud)
+            | COLUMNS=120 LINES=24 ./target/release/claude-hud)
           echo "$out"
           lines=$(printf '%s\n' "$out" | wc -l)
-          test "$lines" -eq 2 || { echo "expected 2 lines, got $lines"; exit 1; }
+          test "$lines" -eq 2 || { echo "expected 2 minimal lines, got $lines"; exit 1; }
+          classic=$(echo '{}' | COLUMNS=120 LINES=24 CLAUDE_HUD_STYLE=classic ./target/release/claude-hud)
+          test "$(printf '%s\n' "$classic" | wc -l)" -eq 2
+          compact=$(echo '{}' | COLUMNS=120 LINES=24 CLAUDE_HUD_ONELINE=1 ./target/release/claude-hud)
+          test "$(printf '%s\n' "$compact" | wc -l)" -eq 1

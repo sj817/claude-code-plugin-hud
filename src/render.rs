@@ -318,6 +318,10 @@ fn legacy_cache_seg(cw: &ContextWindow) -> Option<Seg> {
 /// Join `segs` with the faint pipe, dropping lowest-priority segments until the
 /// visible width fits `cols`.
 fn join_fit(mut segs: Vec<Seg>, cols: usize) -> String {
+    // Keep an empty row present even when a shell trims trailing newlines.
+    if segs.is_empty() {
+        return RESET.to_string();
+    }
     let sep_w = UnicodeWidthStr::width(PIPE_PLAIN);
     loop {
         let total: usize =
@@ -337,6 +341,9 @@ fn join_fit(mut segs: Vec<Seg>, cols: usize) -> String {
         }
     }
     let sep = pipe();
+    if let Some(seg) = segs.first().filter(|s| s.width() > cols) {
+        return format!("{}{RESET}", shorten(&seg.plain, cols));
+    }
     segs.iter()
         .map(|s| s.rendered.as_str())
         .collect::<Vec<_>>()
@@ -346,7 +353,7 @@ fn join_fit(mut segs: Vec<Seg>, cols: usize) -> String {
 // ---- helpers --------------------------------------------------------------
 
 /// `Opus 4.8 (1M context)` -> `Opus 4.8` (the 1M now shows in the bar's total).
-fn compact_model(display_name: &str) -> String {
+pub(crate) fn compact_model(display_name: &str) -> String {
     let base = display_name
         .split('(')
         .next()
@@ -395,12 +402,12 @@ fn char_cells(c: char) -> usize {
 }
 
 /// Painted width of a plain (escape-free) string.
-fn display_width(s: &str) -> usize {
+pub(crate) fn display_width(s: &str) -> usize {
     s.chars().map(char_cells).sum()
 }
 
 /// Whole minutes only, no seconds: `1h50m`, `45m`.
-fn fmt_duration(ms: u64) -> String {
+pub(crate) fn fmt_duration(ms: u64) -> String {
     let mins = ms / 60_000;
     let (h, m) = (mins / 60, mins % 60);
     if h > 0 {
@@ -431,7 +438,7 @@ fn fmt_tokens(n: u64) -> String {
     }
 }
 
-fn now_unix() -> i64 {
+pub(crate) fn now_unix() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs() as i64)
@@ -443,7 +450,7 @@ fn fmt_countdown(resets_at: i64) -> String {
     fmt_countdown_at(resets_at, now_unix())
 }
 
-fn fmt_countdown_at(resets_at: i64, now: i64) -> String {
+pub(crate) fn fmt_countdown_at(resets_at: i64, now: i64) -> String {
     let secs = resets_at.saturating_sub(now);
     if secs <= 0 {
         return "now".to_string();
@@ -458,9 +465,38 @@ fn fmt_countdown_at(resets_at: i64, now: i64) -> String {
     }
 }
 
+/// Shorten plain text by terminal cells, never cutting an ANSI sequence.
+pub(crate) fn shorten(text: &str, cols: usize) -> String {
+    if display_width(text) <= cols {
+        return text.to_string();
+    }
+    if cols == 0 {
+        return String::new();
+    }
+    let mut result = String::new();
+    let mut width = 0;
+    for c in text.chars() {
+        let cells = char_cells(c);
+        if width + cells > cols - 1 {
+            break;
+        }
+        result.push(c);
+        width += cells;
+    }
+    result.push('…');
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn empty_second_row_preserves_two_line_output() {
+        let out = render(&StatusInput::default(), 116);
+        assert_eq!(out.trim_end_matches('\n').lines().count(), 2);
+        assert!(out.ends_with(RESET));
+    }
 
     fn sample() -> StatusInput {
         serde_json::from_str(

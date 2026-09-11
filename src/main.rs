@@ -5,6 +5,7 @@
 mod git;
 mod input;
 mod render;
+mod ribbon;
 mod theme;
 
 use std::io::Read;
@@ -27,7 +28,15 @@ fn main() {
     );
     let auto_one = env_usize("LINES").map(|l| l < 10).unwrap_or(false);
 
-    let out = if force_one || auto_one {
+    let classic =
+        std::env::var("CLAUDE_HUD_STYLE").is_ok_and(|style| style.eq_ignore_ascii_case("classic"));
+    let ascii = matches!(
+        std::env::var("CLAUDE_HUD_ASCII").as_deref(),
+        Ok("1") | Ok("true")
+    );
+    let out = if !classic {
+        ribbon::render(&data, cols, ascii, force_one || auto_one)
+    } else if force_one || auto_one {
         render::render_compact(&data, cols)
     } else {
         render::render(&data, cols)
@@ -48,9 +57,7 @@ fn env_usize(name: &str) -> Option<usize> {
 /// `CLAUDE_HUD_MARGIN` overrides the reservation.
 fn drawable_cols(cols: usize) -> usize {
     let margin = env_usize("CLAUDE_HUD_MARGIN").unwrap_or(DEFAULT_MARGIN);
-    cols.saturating_sub(margin).max(MIN_COLS)
+    cols.saturating_sub(margin).max(1).min(cols)
 }
 
-/// Never shrink below this, however wide the requested margin is.
-const MIN_COLS: usize = 20;
 const DEFAULT_MARGIN: usize = 4;
