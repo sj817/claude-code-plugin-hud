@@ -9,8 +9,8 @@ name: Release
 # that back to main (so `/plugin install` ships working binaries), and publishes
 # a GitHub Release with zipped assets.
 #
-# A single target failing does not block the release (publish runs `if: always()`
-# and is non-destructive — a missing target keeps its previously committed binary).
+# Publish only when every target builds successfully, so a new release cannot
+# accidentally include a previously committed binary for a failed target.
 #
 # Requires: Settings -> Actions -> Workflow permissions -> "Read and write".
 
@@ -76,7 +76,7 @@ jobs:
   publish:
     name: commit dist · release
     needs: build
-    if: ${{ always() }}
+    if: ${{ needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -95,9 +95,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist
-          # incoming/<triple>/<bin> -> dist/<triple>/<bin> (non-destructive: any
-          # target that failed to build keeps its previously committed binary).
-          cp -r incoming/* dist/ 2>/dev/null || true
+          # incoming/<triple>/<bin> -> dist/<triple>/<bin>; all builds succeeded.
+          cp -r incoming/* dist/
           chmod +x dist/*/claude-hud 2>/dev/null || true
           mkdir -p release
           for d in dist/*/; do

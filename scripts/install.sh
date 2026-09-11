@@ -566,7 +566,8 @@ PASTE_SNIPPET=$(cat <<EOF
   "statusLine": {
     "type": "command",
     "command": "${CMD_PATH}",
-    "padding": 2
+    "padding": 0,
+    "refreshInterval": 30
   }
 }
 EOF
@@ -635,7 +636,7 @@ if os.path.exists(path) and os.path.getsize(path) > 0:
             sys.stderr.write(msg_not_object + "\n")
             sys.exit(1)
 
-data["statusLine"] = {"type": "command", "command": cmd, "padding": 2}
+data["statusLine"] = {"type": "command", "command": cmd, "padding": 0, "refreshInterval": 30}
 
 tmp = os.path.join(tmp_dir, "settings.merged.json")
 try:
@@ -665,7 +666,7 @@ elif command -v jq >/dev/null 2>&1; then
   fi
   MERGED="${TMP_DIR}/settings.merged.json"
   if jq --arg cmd "$CMD_PATH" \
-       '.statusLine = {type:"command", command:$cmd, padding:2}' \
+       '.statusLine = {type:"command", command:$cmd, padding:0, refreshInterval:30}' \
        "$INPUT" > "$MERGED"; then
     mv -f "$MERGED" "$SETTINGS_PATH" \
       || die "$(t move_settings_failed "$SETTINGS_PATH")"

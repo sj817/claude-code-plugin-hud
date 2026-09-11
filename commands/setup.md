@@ -62,18 +62,22 @@ Read the existing JSON (create `{}` if absent), then set the `statusLine` key,
   "statusLine": {
     "type": "command",
     "command": "<ABSOLUTE_PATH_TO_BINARY>",
-    "padding": 2
+    "padding": 0,
+    "refreshInterval": 30
   }
 }
 ```
 
 Notes:
+- Keep `padding` at `0`. Claude Code already adds built-in horizontal spacing;
+  this field is extra indentation on top of it.
 - On Windows, write the path with **forward slashes** (e.g.
   `C:/Users/you/.claude/plugins/.../claude-hud.exe`). Git Bash treats unquoted
   backslashes as escapes and the command will silently fail.
-- Do **not** set `refreshInterval` by default — this HUD shows no clock and
-  recomputes on every assistant message already. Only add it (e.g. `5`) if the
-  user wants git/branch to refresh while idle.
+- Set `refreshInterval` to `30` seconds so cache and quota countdowns keep
+  updating while the conversation is idle. Event-driven updates still run.
+  Updating the binary alone does not add this setting; re-run setup for
+  existing installations too.
 - The binary already emits exactly two fixed-height lines and adapts to
   `$COLUMNS`, so no extra wrapper or width flags are needed.
 

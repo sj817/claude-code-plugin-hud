@@ -53,7 +53,7 @@ Quota: 5h 25% 57m · 7d 38% 2d10h | 🎉Cache: 99% 47m | 📁 D:/Github/claude-c
 | Cost | `💰 $27.62` | Session cost in USD. |
 | Duration | `⏱ 3h4m` | Wall-clock time since the session started. |
 | Branch | `🌿 main*` | Git branch. A trailing `*` marks a dirty working tree. |
-| Version · effort(model) | `v2.1.251 🚀 ⚡high(Opus 5)` | Right-aligned: Claude Code version, a 🚀 while fast mode is on, reasoning effort, model. |
+| Version · effort(model) | `v2.1.251 🚀 ⚡high(Opus 5)` | Final width-aware segment: Claude Code version, a 🚀 while fast mode is on, reasoning effort, model. |
 
 ### Line 2
 
@@ -72,6 +72,11 @@ Notes:
 
 ## Configuration
 
+Setup and the installers set `statusLine.refreshInterval` to `30` seconds so
+cache and quota countdowns keep updating while the conversation is idle.
+Existing users should re-run setup/the installer or add `"refreshInterval": 30`
+to their `statusLine` settings; updating only the binary is not enough.
+
 `CLAUDE_HUD_ONELINE` renders line 1 only, which keeps Claude Code's mode row visible below the prompt. Set it to `1` (or `true`):
 
 ```text
@@ -80,7 +85,7 @@ CLAUDE_HUD_ONELINE=1
 
 The HUD also collapses to one line when `$LINES` is below 10. `$COLUMNS` and `$LINES` come from Claude Code v2.1.153+; width falls back to 80 when absent.
 
-`$COLUMNS` is the whole terminal, but Claude Code draws the statusline inset by `statusLine.padding` columns on each side and cuts the overflow with an `…`. The HUD reads that padding out of your settings and reserves it. `CLAUDE_HUD_MARGIN` overrides the reservation if your terminal needs a different one:
+Claude Code already gives the status line built-in horizontal spacing, so the installer leaves the optional `statusLine.padding` at `0`. The HUD also reserves four columns inside `$COLUMNS` for the built-in gutters and the notification area that shares this row. `CLAUDE_HUD_MARGIN` overrides that safety margin if your terminal needs a different value:
 
 ```text
 CLAUDE_HUD_MARGIN=4
@@ -96,7 +101,8 @@ To skip `:setup`, point `statusLine` at the binary directly:
   "statusLine": {
     "type": "command",
     "command": "/absolute/path/to/claude-hud",
-    "padding": 2
+    "padding": 0,
+    "refreshInterval": 30
   }
 }
 ```

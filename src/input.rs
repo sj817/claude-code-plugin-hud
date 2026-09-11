@@ -127,7 +127,7 @@ pub struct PromptCache {
     /// Cache reads over all input tokens this session, 0.0..1.0. `null` while
     /// every one of those counts is still zero.
     pub hit_ratio: Option<f64>,
-    /// Epoch seconds at which the cached prefix goes cold. Claude Code re-runs
-    /// the statusline when it passes, so a countdown here stays honest.
+    /// Epoch seconds at which the cached prefix goes cold. Compare with the
+    /// current clock on every render, even if `warm` is from an older snapshot.
     pub expires_at: Option<i64>,
 }

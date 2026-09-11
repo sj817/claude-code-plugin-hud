@@ -53,7 +53,7 @@ Quota: 5h 25% 57m · 7d 38% 2d10h | 🎉Cache: 99% 47m | 📁 D:/Github/claude-c
 | 花费 | `💰 $27.62` | 本会话花费(美元)。 |
 | 时长 | `⏱ 3h4m` | 自会话开始的挂钟时间。 |
 | 分支 | `🌿 main*` | git 分支。末尾的 `*` 表示工作区有未提交改动。 |
-| 版本 · 强度(模型) | `v2.1.251 🚀 ⚡high(Opus 5)` | 右对齐:Claude Code 版本、快速模式开启时的 🚀、推理强度、模型。 |
+| 版本 · 强度(模型) | `v2.1.251 🚀 ⚡high(Opus 5)` | 最后一个宽度感知段:Claude Code 版本、快速模式开启时的 🚀、推理强度、模型。 |
 
 ### 第二行
 
@@ -72,6 +72,10 @@ Quota: 5h 25% 57m · 7d 38% 2d10h | 🎉Cache: 99% 47m | 📁 D:/Github/claude-c
 
 ## 配置
 
+Setup 和安装器会将 `statusLine.refreshInterval` 设为 `30` 秒,让缓存和额度
+倒计时在对话空闲时继续更新。已有用户需重新运行 setup/安装器,或在 `statusLine`
+配置中添加 `"refreshInterval": 30`;仅更新二进制不会开启定时刷新。
+
 `CLAUDE_HUD_ONELINE` 只渲染第一行,从而让 Claude Code 输入框下方的模式行保持可见。设为 `1`(或 `true`):
 
 ```text
@@ -80,7 +84,7 @@ CLAUDE_HUD_ONELINE=1
 
 当 `$LINES` 小于 10 时,HUD 也会收成一行。`$COLUMNS` 和 `$LINES` 由 Claude Code v2.1.153+ 提供;缺失时宽度回退为 80。
 
-`$COLUMNS` 是整个终端的宽度,但 Claude Code 会按 `statusLine.padding` 在状态栏左右各缩进若干列,超出的部分直接截断成 `…`。HUD 会从设置里读出这个 padding 并预留出来。若你的终端需要别的值,用 `CLAUDE_HUD_MARGIN` 覆盖:
+Claude Code 已经为状态栏提供了内置水平留白,所以安装器把额外的 `statusLine.padding` 保持为 `0`。HUD 还会在 `$COLUMNS` 内预留四列,给内置边距以及与状态栏共用一行的通知区。若你的终端需要别的值,用 `CLAUDE_HUD_MARGIN` 覆盖:
 
 ```text
 CLAUDE_HUD_MARGIN=4
@@ -96,7 +100,8 @@ CLAUDE_HUD_MARGIN=4
   "statusLine": {
     "type": "command",
     "command": "/absolute/path/to/claude-hud",
-    "padding": 2
+    "padding": 0,
+    "refreshInterval": 30
   }
 }
 ```

@@ -3,7 +3,7 @@
 //! Layout (two lines):
 //!   Line 1 — `███░ 252k/1M(25%) | +1507 -542 | 💰 $10.95 | ⏱ 1h36m | 🌿 main* ... v2.1.251 🚀 ⚡high(Opus 5)`
 //!            context bar · lines changed · cost · duration · git on the left;
-//!            version, fast-mode rocket, effort and model right-aligned in the corner.
+//!            version, fast-mode rocket, effort and model as the final segment.
 //!   Line 2 — `Quota: 5h 10% 2h26m · 7d 35% 2d12h · $ 63% 20d3h | 🎉Cache: 91% 47m | 📁 Github/proj`
 //!            quota usage (the focus), cache, folder (last; smart-trimmed to ~40 chars).
 //!
@@ -96,43 +96,43 @@ fn line1(data: &StatusInput, cols: usize) -> String {
         ));
     }
 
-    // Right corner: version · effort(model).
-    let right = right_corner(data);
-    let rw = strip_width(&right);
-    if right.is_empty() {
-        return join_fit(segs, cols);
-    }
-    let budget = cols.saturating_sub(rw + 1);
-    let left = join_fit(segs, budget);
-    let lw = strip_width(&left);
-    if lw + rw < cols {
-        format!("{left}{}{right}", " ".repeat(cols - lw - rw))
-    } else {
-        format!("{left} {right}")
-    }
+    // Keep metadata in the normal flow. Claude Code shares this row with
+    // notifications, so padding it to the far edge makes the UI replace the
+    // right corner with an ellipsis whenever that reserved area grows.
+    segs.push(right_corner(data));
+    join_fit(segs, cols)
 }
 
 /// `v2.1.251 🚀 ⚡high(Opus 5)` — version gray, a rocket while fast mode is on,
 /// effort orange, model teal.
-fn right_corner(data: &StatusInput) -> String {
+fn right_corner(data: &StatusInput) -> Seg {
     let model = compact_model(&data.model.display_name);
-    let mut parts = Vec::new();
+    let mut plain = Vec::new();
+    let mut rendered = Vec::new();
     if !data.version.is_empty() {
-        parts.push(format!("{}v{}{RESET}", theme::VERSION, data.version));
+        plain.push(format!("v{}", data.version));
+        rendered.push(format!("{}v{}{RESET}", theme::VERSION, data.version));
     }
     if data.fast_mode {
-        parts.push("\u{1f680}".to_string());
+        plain.push("\u{1f680}".to_string());
+        rendered.push("\u{1f680}".to_string());
     }
     match data.effort.as_ref().filter(|e| !e.level.is_empty()) {
-        Some(e) => parts.push(format!(
-            "{}\u{26a1}{}{RESET}{m}({model}){RESET}",
-            theme::EFFORT,
-            e.level,
-            m = theme::MODEL
-        )),
-        None => parts.push(paint(theme::MODEL, &model)),
+        Some(e) => {
+            plain.push(format!("\u{26a1}{}({model})", e.level));
+            rendered.push(format!(
+                "{}\u{26a1}{}{RESET}{m}({model}){RESET}",
+                theme::EFFORT,
+                e.level,
+                m = theme::MODEL
+            ));
+        }
+        None => {
+            plain.push(model.clone());
+            rendered.push(paint(theme::MODEL, &model));
+        }
     }
-    parts.join(" ")
+    Seg::new(plain.join(" "), rendered.join(" "), 90)
 }
 
 /// The single progress bar: `███░ 252k/1M(25%)`.
@@ -257,11 +257,15 @@ fn rate_seg(data: &StatusInput) -> Option<Seg> {
 
 /// `🎉Cache: 91% 47m` — the session-wide hit ratio Claude Code computes, plus
 /// the time left before the cached prefix goes cold (`cold` once it has). The
-/// countdown is trustworthy: Claude Code re-runs the statusline at `expires_at`.
+/// installer enables periodic refreshes so the countdown advances while idle.
 ///
 /// Claude Code older than v2.1.251 sends no `prompt_cache`, so we fall back to
 /// the ratio derived from `current_usage` in the most recent response.
 fn cache_seg(data: &StatusInput) -> Option<Seg> {
+    cache_seg_at(data, now_unix())
+}
+
+fn cache_seg_at(data: &StatusInput, now: i64) -> Option<Seg> {
     let Some(pc) = data.prompt_cache.as_ref() else {
         return legacy_cache_seg(&data.context_window);
     };
@@ -271,12 +275,12 @@ fn cache_seg(data: &StatusInput) -> Option<Seg> {
         return None;
     }
     let pct = (pc.hit_ratio? * 100.0).clamp(0.0, 100.0);
-    let tail = if pc.warm {
-        pc.expires_at
-            .map(|t| format!(" {}", fmt_countdown(t)))
-            .unwrap_or_default()
-    } else {
+    let tail = if !pc.warm || pc.expires_at.is_some_and(|t| t <= now) {
         " cold".to_string()
+    } else {
+        pc.expires_at
+            .map(|t| format!(" {}", fmt_countdown_at(t, now)))
+            .unwrap_or_default()
     };
     Some(Seg::new(
         format!("\u{1f389}Cache: {pct:.0}%{tail}"),
@@ -395,24 +399,6 @@ fn display_width(s: &str) -> usize {
     s.chars().map(char_cells).sum()
 }
 
-/// Visible width of a string that may contain ANSI SGR codes.
-fn strip_width(s: &str) -> usize {
-    let mut w = 0;
-    let mut in_esc = false;
-    for c in s.chars() {
-        if c == '\x1b' {
-            in_esc = true;
-        } else if in_esc {
-            if c == 'm' {
-                in_esc = false;
-            }
-        } else {
-            w += char_cells(c);
-        }
-    }
-    w
-}
-
 /// Whole minutes only, no seconds: `1h50m`, `45m`.
 fn fmt_duration(ms: u64) -> String {
     let mins = ms / 60_000;
@@ -454,7 +440,11 @@ fn now_unix() -> i64 {
 
 /// `resets_at` (epoch secs) -> `2d12h` / `2h26m` / `8m` / `now`.
 fn fmt_countdown(resets_at: i64) -> String {
-    let secs = resets_at - now_unix();
+    fmt_countdown_at(resets_at, now_unix())
+}
+
+fn fmt_countdown_at(resets_at: i64, now: i64) -> String {
+    let secs = resets_at.saturating_sub(now);
     if secs <= 0 {
         return "now".to_string();
     }
@@ -465,5 +455,119 @@ fn fmt_countdown(resets_at: i64) -> String {
         format!("{h}h{m}m")
     } else {
         format!("{m}m")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample() -> StatusInput {
+        serde_json::from_str(
+            r#"{
+                "model":{"display_name":"Opus 5"},
+                "context_window":{"used_percentage":32,"total_input_tokens":318000,"context_window_size":1000000},
+                "cost":{"total_cost_usd":68.62,"total_duration_ms":11400000,"total_lines_added":3166,"total_lines_removed":681},
+                "version":"2.1.251",
+                "effort":{"level":"high"},
+                "fast_mode":true,
+                "session_id":"layout-test"
+            }"#,
+        )
+        .expect("sample input is valid")
+    }
+
+    fn plain_ansi(s: &str) -> String {
+        let mut out = String::new();
+        let mut in_escape = false;
+        for c in s.chars() {
+            if c == '\x1b' {
+                in_escape = true;
+            } else if in_escape {
+                if c == 'm' {
+                    in_escape = false;
+                }
+            } else {
+                out.push(c);
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn line1_keeps_metadata_in_flow_without_right_padding() {
+        let line = plain_ansi(&line1(&sample(), 120));
+        assert!(line.contains("v2.1.251 🚀 ⚡high(Opus 5)"));
+        assert!(!line.contains("    "));
+        assert!(display_width(&line) <= 120);
+    }
+
+    #[test]
+    fn line1_still_fits_a_narrow_terminal() {
+        let line = plain_ansi(&line1(&sample(), 40));
+        assert!(display_width(&line) <= 40);
+        assert!(!line.contains("    "));
+    }
+
+    #[test]
+    fn cache_countdown_advances_and_expires_without_new_input() {
+        let now = 1_800_000_000;
+        let data: StatusInput = serde_json::from_value(serde_json::json!({
+            "prompt_cache": {
+                "warm": true,
+                "caching_observed": true,
+                "hit_ratio": 0.91,
+                "expires_at": now + 3599
+            }
+        }))
+        .unwrap();
+
+        for (elapsed, expected) in [(0, "59m"), (60, "58m"), (3599, "cold"), (7200, "cold")] {
+            let seg = cache_seg_at(&data, now + elapsed).unwrap();
+            assert_eq!(
+                plain_ansi(&seg.rendered),
+                format!("🎉Cache: 91% {expected}")
+            );
+        }
+    }
+
+    #[test]
+    fn cache_respects_cold_and_missing_statistics() {
+        for (cache, expected) in [
+            (
+                serde_json::json!({"warm": false, "caching_observed": true, "hit_ratio": 0.91, "expires_at": 2000}),
+                Some("🎉Cache: 91% cold"),
+            ),
+            (
+                serde_json::json!({"warm": true, "caching_observed": true, "hit_ratio": 0.91, "expires_at": null}),
+                Some("🎉Cache: 91%"),
+            ),
+            (
+                serde_json::json!({"warm": true, "caching_observed": false, "hit_ratio": 0.0}),
+                None,
+            ),
+            (
+                serde_json::json!({"warm": true, "caching_observed": true, "hit_ratio": null}),
+                None,
+            ),
+        ] {
+            let data: StatusInput =
+                serde_json::from_value(serde_json::json!({"prompt_cache": cache})).unwrap();
+            let actual = cache_seg_at(&data, 1000).map(|seg| plain_ansi(&seg.rendered));
+            assert_eq!(actual.as_deref(), expected);
+        }
+    }
+
+    #[test]
+    fn cache_keeps_legacy_input_compatible() {
+        let data: StatusInput = serde_json::from_value(serde_json::json!({
+            "context_window": {"current_usage": {
+                "input_tokens": 100,
+                "cache_read_input_tokens": 900
+            }}
+        }))
+        .unwrap();
+        let seg = cache_seg_at(&data, 1000).unwrap();
+        assert_eq!(plain_ansi(&seg.rendered), "🎉Cache: 900/1.0k(90%)");
     }
 }

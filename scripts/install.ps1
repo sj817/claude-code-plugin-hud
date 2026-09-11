@@ -444,7 +444,8 @@ try {
     $statusLine = [PSCustomObject]@{
         type    = 'command'
         command = $cmdPath
-        padding = 2
+        padding = 0
+        refreshInterval = 30
     }
 
     # Set/replace the statusLine property, preserving every other key.

@@ -1,7 +1,7 @@
 {
   "name": "claude-code-plugin-hud",
   "description": "A two-line statusline for Claude Code, written in Rust. Shows model, context window, cost, git, and rate limits.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "author": {
     "name": "sj817"
   },

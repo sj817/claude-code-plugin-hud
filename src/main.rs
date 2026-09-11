@@ -8,7 +8,6 @@ mod render;
 mod theme;
 
 use std::io::Read;
-use std::path::PathBuf;
 
 fn main() {
     let mut buf = String::new();
@@ -44,50 +43,14 @@ fn env_usize(name: &str) -> Option<usize> {
 
 /// Columns we may actually paint.
 ///
-/// `COLUMNS` is the whole terminal, but Claude Code insets the statusline by
-/// `statusLine.padding` columns on each side and cuts anything past that with
-/// an `…`. Filling all of `COLUMNS` therefore loses the right corner. Reserve
-/// the inset instead; `CLAUDE_HUD_MARGIN` overrides the reservation.
+/// Keep a small safety margin inside `$COLUMNS` for Claude Code's built-in
+/// gutters and the notification area that shares the status-line row.
+/// `CLAUDE_HUD_MARGIN` overrides the reservation.
 fn drawable_cols(cols: usize) -> usize {
-    let margin = env_usize("CLAUDE_HUD_MARGIN").unwrap_or(2 * statusline_padding());
+    let margin = env_usize("CLAUDE_HUD_MARGIN").unwrap_or(DEFAULT_MARGIN);
     cols.saturating_sub(margin).max(MIN_COLS)
 }
 
-/// Never shrink below this, however wide the padding claims to be.
+/// Never shrink below this, however wide the requested margin is.
 const MIN_COLS: usize = 20;
-
-/// `statusLine.padding` as Claude Code resolves it: user settings first, then
-/// the project's, then its local overrides — last definition wins. Defaults to
-/// Claude Code's own default of 1 when nobody sets it.
-fn statusline_padding() -> usize {
-    let mut paths: Vec<PathBuf> = Vec::new();
-    if let Some(home) = home_dir() {
-        paths.push(home.join(".claude").join("settings.json"));
-    }
-    paths.push(PathBuf::from(".claude/settings.json"));
-    paths.push(PathBuf::from(".claude/settings.local.json"));
-
-    let mut padding = 1;
-    for p in paths {
-        let Ok(text) = std::fs::read_to_string(&p) else {
-            continue;
-        };
-        let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) else {
-            continue;
-        };
-        if let Some(n) = v
-            .get("statusLine")
-            .and_then(|s| s.get("padding"))
-            .and_then(|p| p.as_u64())
-        {
-            padding = n as usize;
-        }
-    }
-    padding
-}
-
-fn home_dir() -> Option<PathBuf> {
-    std::env::var_os("USERPROFILE")
-        .or_else(|| std::env::var_os("HOME"))
-        .map(PathBuf::from)
-}
+const DEFAULT_MARGIN: usize = 4;
