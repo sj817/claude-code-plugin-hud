@@ -11,15 +11,15 @@ env:
 
 jobs:
   windows-installer:
-    name: installer - ${{ matrix.shell }}
+    name: installer - Windows PowerShell 5.1 and PowerShell 7
     runs-on: windows-latest
-    strategy:
-      matrix:
-        shell: [powershell, pwsh]
     steps:
       - uses: actions/checkout@v4
-      - name: Check pipeline and file installation
-        shell: ${{ matrix.shell }}
+      - name: Check pipeline and file installation on Windows PowerShell 5.1
+        shell: powershell
+        run: ./scripts/test-install.ps1
+      - name: Check pipeline and file installation on PowerShell 7
+        shell: pwsh
         run: ./scripts/test-install.ps1
 
   check:
