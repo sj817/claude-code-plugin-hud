@@ -10,6 +10,18 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  windows-installer:
+    name: installer - ${{ matrix.shell }}
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        shell: [powershell, pwsh]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check pipeline and file installation
+        shell: ${{ matrix.shell }}
+        run: ./scripts/test-install.ps1
+
   check:
     name: fmt · clippy · build · smoke
     runs-on: ubuntu-latest

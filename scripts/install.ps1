@@ -1,4 +1,4 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     Installs the claude-code-plugin-hud statusline binary (claude-hud) on Windows
@@ -95,42 +95,52 @@ $MSG = @{
         install_failed_hdr = 'Install failed: {0}'
     }
     zh = @{
-        warn_tls          = '警告：无法强制启用 TLS 1.2，将继续尝试。'
-        header_title      = 'claude-code-plugin-hud 安装程序'
+        warn_tls          = '\u8b66\u544a\uff1a\u65e0\u6cd5\u5f3a\u5236\u542f\u7528 TLS 1.2\uff0c\u5c06\u7ee7\u7eed\u5c1d\u8bd5\u3002'
+        header_title      = 'claude-code-plugin-hud \u5b89\u88c5\u7a0b\u5e8f'
         header_rule       = '================================'
-        unsupported_arch  = "不支持的处理器架构 '{0}'。claude-hud 在 Windows 上仅支持 x86_64（AMD64）和 ARM64。"
-        resolved_triple   = '已识别目标平台：{0}'
-        invalid_version   = "无效的版本号 '{0}'。请使用 'latest' 或形如 '0.1.6' / 'v0.1.6' 的语义化版本号。"
-        version_line      = '版本：{0}'
-        download_url      = '下载地址：{0}'
-        no_home           = '无法确定用户主目录（HOME 与 USERPROFILE 均为空）。'
-        downloading       = '正在下载……'
-        download_failed   = "从 {0} 下载失败`n{1}"
-        download_empty    = '下载的文件缺失或为空：{0}'
-        verify_read_fail  = '无法读取下载的文件以进行校验：{0}'
-        not_a_zip         = '下载的文件不是 zip 压缩包（可能返回了 HTML 或错误页面？）。地址：{0}'
-        extracting        = '正在解压……'
-        expand_fallback   = 'Expand-Archive 不可用或执行失败，回退到 .NET ZipFile。'
-        extract_failed    = "解压压缩包 '{0}' 失败。`n{1}"
-        binary_not_found  = '在解压后的压缩包中未找到 {0}（{1}）。'
-        installing_to     = '正在安装到：{0}'
-        install_failed    = '安装失败：未能创建 {0}。'
-        settings_parse    = "无法将现有的 settings.json 解析为 JSON/JSONC（{0}）。请修复或删除后重试。`n{1}"
-        backed_up         = '已备份现有配置到：{0}'
-        backup_preserved  = '已保留现有备份：{0}'
-        not_an_object     = 'settings.json 未解析为 JSON 对象，已拒绝覆盖。请检查：{0}'
-        write_failed      = "未能安全写入 settings.json，原文件保持不变。`n{0}"
-        updated_statusln  = '已在以下文件中更新 statusLine：{0}'
-        success           = '安装成功！claude-hud 已安装并完成配置。'
-        sum_triple        = '  目标平台：    {0}'
-        sum_url           = '  下载地址：    {0}'
-        sum_install       = '  安装路径：    {0}'
-        sum_settings      = '  settings.json：{0}'
-        restart_hint      = '请重启 Claude Code（或新开一个会话）以查看状态栏。'
-        preview_header    = '预览：'
-        preview_failed    = '预览失败（二进制文件仍已安装）。'
-        install_failed_hdr = '安装失败：{0}'
+        unsupported_arch  = "\u4e0d\u652f\u6301\u7684\u5904\u7406\u5668\u67b6\u6784 '{0}'\u3002claude-hud \u5728 Windows \u4e0a\u4ec5\u652f\u6301 x86_64\uff08AMD64\uff09\u548c ARM64\u3002"
+        resolved_triple   = '\u5df2\u8bc6\u522b\u76ee\u6807\u5e73\u53f0\uff1a{0}'
+        invalid_version   = "\u65e0\u6548\u7684\u7248\u672c\u53f7 '{0}'\u3002\u8bf7\u4f7f\u7528 'latest' \u6216\u5f62\u5982 '0.1.6' / 'v0.1.6' \u7684\u8bed\u4e49\u5316\u7248\u672c\u53f7\u3002"
+        version_line      = '\u7248\u672c\uff1a{0}'
+        download_url      = '\u4e0b\u8f7d\u5730\u5740\uff1a{0}'
+        no_home           = '\u65e0\u6cd5\u786e\u5b9a\u7528\u6237\u4e3b\u76ee\u5f55\uff08HOME \u4e0e USERPROFILE \u5747\u4e3a\u7a7a\uff09\u3002'
+        downloading       = '\u6b63\u5728\u4e0b\u8f7d\u2026\u2026'
+        download_failed   = "\u4ece {0} \u4e0b\u8f7d\u5931\u8d25`n{1}"
+        download_empty    = '\u4e0b\u8f7d\u7684\u6587\u4ef6\u7f3a\u5931\u6216\u4e3a\u7a7a\uff1a{0}'
+        verify_read_fail  = '\u65e0\u6cd5\u8bfb\u53d6\u4e0b\u8f7d\u7684\u6587\u4ef6\u4ee5\u8fdb\u884c\u6821\u9a8c\uff1a{0}'
+        not_a_zip         = '\u4e0b\u8f7d\u7684\u6587\u4ef6\u4e0d\u662f zip \u538b\u7f29\u5305\uff08\u53ef\u80fd\u8fd4\u56de\u4e86 HTML \u6216\u9519\u8bef\u9875\u9762\uff1f\uff09\u3002\u5730\u5740\uff1a{0}'
+        extracting        = '\u6b63\u5728\u89e3\u538b\u2026\u2026'
+        expand_fallback   = 'Expand-Archive \u4e0d\u53ef\u7528\u6216\u6267\u884c\u5931\u8d25\uff0c\u56de\u9000\u5230 .NET ZipFile\u3002'
+        extract_failed    = "\u89e3\u538b\u538b\u7f29\u5305 '{0}' \u5931\u8d25\u3002`n{1}"
+        binary_not_found  = '\u5728\u89e3\u538b\u540e\u7684\u538b\u7f29\u5305\u4e2d\u672a\u627e\u5230 {0}\uff08{1}\uff09\u3002'
+        installing_to     = '\u6b63\u5728\u5b89\u88c5\u5230\uff1a{0}'
+        install_failed    = '\u5b89\u88c5\u5931\u8d25\uff1a\u672a\u80fd\u521b\u5efa {0}\u3002'
+        settings_parse    = "\u65e0\u6cd5\u5c06\u73b0\u6709\u7684 settings.json \u89e3\u6790\u4e3a JSON/JSONC\uff08{0}\uff09\u3002\u8bf7\u4fee\u590d\u6216\u5220\u9664\u540e\u91cd\u8bd5\u3002`n{1}"
+        backed_up         = '\u5df2\u5907\u4efd\u73b0\u6709\u914d\u7f6e\u5230\uff1a{0}'
+        backup_preserved  = '\u5df2\u4fdd\u7559\u73b0\u6709\u5907\u4efd\uff1a{0}'
+        not_an_object     = 'settings.json \u672a\u89e3\u6790\u4e3a JSON \u5bf9\u8c61\uff0c\u5df2\u62d2\u7edd\u8986\u76d6\u3002\u8bf7\u68c0\u67e5\uff1a{0}'
+        write_failed      = "\u672a\u80fd\u5b89\u5168\u5199\u5165 settings.json\uff0c\u539f\u6587\u4ef6\u4fdd\u6301\u4e0d\u53d8\u3002`n{0}"
+        updated_statusln  = '\u5df2\u5728\u4ee5\u4e0b\u6587\u4ef6\u4e2d\u66f4\u65b0 statusLine\uff1a{0}'
+        success           = '\u5b89\u88c5\u6210\u529f\uff01claude-hud \u5df2\u5b89\u88c5\u5e76\u5b8c\u6210\u914d\u7f6e\u3002'
+        sum_triple        = '  \u76ee\u6807\u5e73\u53f0\uff1a    {0}'
+        sum_url           = '  \u4e0b\u8f7d\u5730\u5740\uff1a    {0}'
+        sum_install       = '  \u5b89\u88c5\u8def\u5f84\uff1a    {0}'
+        sum_settings      = '  settings.json\uff1a{0}'
+        restart_hint      = '\u8bf7\u91cd\u542f Claude Code\uff08\u6216\u65b0\u5f00\u4e00\u4e2a\u4f1a\u8bdd\uff09\u4ee5\u67e5\u770b\u72b6\u6001\u680f\u3002'
+        preview_header    = '\u9884\u89c8\uff1a'
+        preview_failed    = '\u9884\u89c8\u5931\u8d25\uff08\u4e8c\u8fdb\u5236\u6587\u4ef6\u4ecd\u5df2\u5b89\u88c5\uff09\u3002'
+        install_failed_hdr = '\u5b89\u88c5\u5931\u8d25\uff1a{0}'
     }
+}
+
+# Keep the source ASCII without a BOM: irm | iex treats a BOM as command text,
+# while Windows PowerShell 5.1 reads BOM-less script files using the ANSI code page.
+# Decode only the catalog literals, before any paths or other values are inserted.
+foreach ($key in @($MSG.zh.Keys)) {
+    $MSG.zh[$key] = [regex]::Replace($MSG.zh[$key], '\\u([0-9a-fA-F]{4})', {
+        param($match)
+        ([char][Convert]::ToInt32($match.Groups[1].Value, 16)).ToString()
+    })
 }
 
 # T 'key' [args...] -> localized string. Falls back to the en entry when the
