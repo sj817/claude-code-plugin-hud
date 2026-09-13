@@ -82,7 +82,7 @@ fn line1(data: &StatusInput, cols: usize) -> String {
             45,
         ));
     }
-    if let Some(g) = git::status(&data.workspace.current_dir, &data.session_id) {
+    if let Some(g) = git::status(data.current_dir(), &data.session_id) {
         let star = if g.dirty { "*" } else { "" };
         let star_r = if g.dirty {
             format!("{}*{RESET}", theme::DEL)
@@ -202,7 +202,7 @@ fn line2(data: &StatusInput) -> Vec<Seg> {
 
     // 📁 folder LAST — smart path: show the full path if it fits the budget,
     // otherwise drop top-level components until it does (never below one).
-    let dir = smart_path(&data.workspace.current_dir);
+    let dir = smart_path(data.current_dir());
     if !dir.is_empty() {
         segs.push(Seg::new(
             format!("\u{1f4c1} {dir}"),

@@ -151,8 +151,8 @@ pub fn render(data: &StatusInput, cols: usize, ascii: bool, one_line: bool) -> S
     if one_line {
         first
     } else {
-        let branch = git::status(&data.workspace.current_dir, &data.session_id);
-        let repository_url = git::repository_url(&data.workspace.current_dir, &data.session_id);
+        let branch = git::status(data.current_dir(), &data.session_id);
+        let repository_url = git::repository_url(data.current_dir(), &data.session_id);
         format!(
             "{first}\n{}",
             second_row(
@@ -168,7 +168,18 @@ pub fn render(data: &StatusInput, cols: usize, ascii: bool, one_line: bool) -> S
 }
 
 fn first_row(data: &StatusInput, cols: usize, ascii: bool, now: i64) -> String {
-    let mut model = clean(&compact_model(&data.model.display_name));
+    let base_model = clean(&compact_model(&data.model.display_name));
+    let mut model = base_model.clone();
+    if let Some(size) = data.context_window.context_window_size {
+        let context_label = match size {
+            1_000_000.. => "(1M)",
+            200_000..=999_999 => "(200k)",
+            _ => "",
+        };
+        if !context_label.is_empty() {
+            model.push_str(context_label);
+        }
+    }
     if let Some(effort) = data.effort.as_ref().filter(|e| !e.level.is_empty()) {
         model.push_str(" · ");
         model.push_str(&clean(&effort.level));
@@ -321,7 +332,7 @@ fn second_row(
         }
         segments.push(Segment::new(parts, None, 30));
     }
-    let path = clean(&data.workspace.current_dir).replace('\\', "/");
+    let path = clean(data.current_dir()).replace('\\', "/");
     if path.is_empty() {
         return fit(segments, cols, ascii);
     }
